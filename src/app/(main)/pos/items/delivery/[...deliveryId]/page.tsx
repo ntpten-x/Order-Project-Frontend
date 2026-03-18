@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Result, Spin } from "antd";
+import { Alert, Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Result, Spin } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined, DownOutlined, UpOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
@@ -35,6 +35,7 @@ import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../..
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
 import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../../../lib/rbac/order-workflow-capabilities";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -48,9 +49,29 @@ export default function POSDeliverySummaryPage() {
     const { user } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const isAdminUser = user?.role === "Admin";
-    const canCreatePayment = can("payments.page", "create");
-    const canEditOrder = isAdminUser || can("orders.edit.feature", "access") || can("orders.page", "update");
+    const canCreatePayment = isAdminUser || can("payments.checkout.feature", "create");
+    const canEditOrder = isAdminUser || can("orders.edit.feature", "update");
     const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access");
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === String(user?.role ?? "").trim().toLowerCase()
+            ) ?? null,
+        [user?.role]
+    );
+    const deliveryCapabilityKeys = useMemo(
+        () => new Set(["orders.detail.feature", "orders.edit.feature", "orders.cancel.feature", "payments.checkout.feature"]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => deliveryCapabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, deliveryCapabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -309,7 +330,7 @@ export default function POSDeliverySummaryPage() {
             <Result
                 status="403"
                 title="403"
-                subTitle="คุณไม่มีสิทธิ์ชำระเงิน (ต้องมีสิทธิ์ payments.page:create)"
+                subTitle="คุณไม่มีสิทธิ์ชำระเงิน (ต้องมีสิทธิ์ payments.checkout.feature:create)"
                 extra={
                     <Button type="primary" onClick={() => router.push("/pos/orders")}>
                         กลับไปหน้ารายการ
@@ -326,6 +347,52 @@ export default function POSDeliverySummaryPage() {
         <div className="delivery-page-container">
             <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
+            <div style={{ padding: "16px 16px 0" }}>
+                {selectedBlueprint ? (
+                    <Alert
+                        type="info"
+                        showIcon
+                        message={`Delivery checkout governance for ${selectedBlueprint.roleName}`}
+                        description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                        style={{ marginBottom: 12 }}
+                    />
+                ) : null}
+                <Alert
+                    type="success"
+                    showIcon
+                    message="Delivery Checkout Capability Matrix"
+                    description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} delivery-checkout capabilities enabled.`}
+                    style={{ marginBottom: 12 }}
+                />
+                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
+                    {capabilityMatrix.map((item) => (
+                        <div
+                            key={item.resourceKey}
+                            style={{
+                                borderRadius: 16,
+                                border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                padding: 14,
+                            }}
+                        >
+                            <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                            <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                            <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+                                {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                {(!canEditOrder || !canCancelOrder) ? (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        message="Delivery checkout governance is partially restricted"
+                        description="Editing the order again or cancelling the whole delivery order is controlled separately from rider handover."
+                        style={{ marginBottom: 12 }}
+                    />
+                ) : null}
+            </div>
                 
             {/* Hero Header - Pink/Magenta Theme */}
             <div className="delivery-hero-mobile">

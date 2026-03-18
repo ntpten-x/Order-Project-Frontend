@@ -7,7 +7,7 @@ import {
     ReloadOutlined,
     RocketOutlined,
 } from "@ant-design/icons";
-import { Button, Flex, Grid, Input, Modal, Skeleton, Space, Tag, message, theme, Typography } from "antd";
+import { Alert, Button, Flex, Grid, Input, Modal, Skeleton, Space, Tag, message, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
@@ -34,6 +34,7 @@ import { SearchBar } from "../../../../../components/ui/page/SearchBar";
 import { SearchInput } from "../../../../../components/ui/input/SearchInput";
 import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
 import type { CreatedSort } from "../../../../../components/ui/pagination/ListPagination";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../../lib/rbac/order-workflow-capabilities";
 
 /* ── Theme helpers ── */
 
@@ -253,31 +254,80 @@ function DeliveryOrderCard({ order, provider, onClick, isMobile }: DeliveryOrder
 export default function DeliverySelectionPage() {
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateOrder = can("orders.page", "create");
+    const canViewChannels = can("orders.channels.feature", "view");
+    const canSearchOrders = can("orders.search.feature", "view");
+    const canFilterOrders = can("orders.filter.feature", "view");
+    const canCreateOrder = can("orders.channel_create.feature", "create");
 
     if (authLoading || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
-    if (!can("orders.page", "view")) {
+    if (!canViewChannels) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
         <RequireOpenShift>
-            <DeliveryContent canCreateOrder={canCreateOrder} />
+            <DeliveryContent
+                can={can}
+                roleName={String(user?.role ?? "")}
+                canSearchOrders={canSearchOrders}
+                canFilterOrders={canFilterOrders}
+                canCreateOrder={canCreateOrder}
+            />
         </RequireOpenShift>
     );
 }
 
 /* ── Main content ── */
 
-function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
+function DeliveryContent({
+    can,
+    roleName,
+    canSearchOrders,
+    canFilterOrders,
+    canCreateOrder,
+}: {
+    can: (resourceKey: string, action?: "access" | "view" | "create" | "update" | "delete") => boolean;
+    roleName: string;
+    canSearchOrders: boolean;
+    canFilterOrders: boolean;
+    canCreateOrder: boolean;
+}) {
     const router = useRouter();
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
-    const { stats } = useChannelStats();
+    const canViewOrderSummary = can("orders.summary.feature", "view");
+    const { stats } = useChannelStats(canViewOrderSummary);
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { token } = theme.useToken();
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === roleName.trim().toLowerCase()
+            ) ?? null,
+        [roleName]
+    );
+    const channelCapabilityKeys = useMemo(
+        () =>
+            new Set([
+                "orders.channels.feature",
+                "orders.search.feature",
+                "orders.filter.feature",
+                "orders.channel_create.feature",
+                "orders.detail.feature",
+            ]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => channelCapabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, channelCapabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
 
     const {
         page, setPage, pageSize, setPageSize, total, setTotal,
@@ -302,7 +352,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const { orders, total: apiTotal, isLoading, isFetching, error, refresh } = useChannelOrders({
         orderType: OrderType.Delivery,
         page, limit: pageSize, statusFilter,
-        query: debouncedSearch, createdSort, enabled: isUrlReady,
+        query: debouncedSearch, createdSort, enabled: isUrlReady && canViewOrderSummary,
     });
 
     useEffect(() => { setTotal(apiTotal); }, [apiTotal, setTotal]);
@@ -442,6 +492,49 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                 />
 
                 <PageContainer style={{ flex: 1, width: '100%', maxWidth: '100%' }}>
+                    <Space direction="vertical" size={12} style={{ width: "100%", marginBottom: 16 }}>
+                        {selectedBlueprint ? (
+                            <Alert
+                                type="info"
+                                showIcon
+                                message={`Delivery baseline for ${selectedBlueprint.roleName}`}
+                                description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                            />
+                        ) : null}
+                        <Alert
+                            type="success"
+                            showIcon
+                            message="Delivery Channel Capability Matrix"
+                            description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} delivery-channel capabilities enabled.`}
+                        />
+                        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))" }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 16,
+                                        border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                        background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                        padding: 14,
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                                    <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                                    <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+                                        {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {(!canCreateOrder || !canSearchOrders || !canFilterOrders) ? (
+                            <Alert
+                                type="warning"
+                                showIcon
+                                message="Delivery operations are partially restricted"
+                                description="Create-order, search, filter, and detail access are controlled separately by policy."
+                            />
+                        ) : null}
+                    </Space>
                     <PageStack gap={20} style={{ width: '100%' }}>
                         {/* ── Search + Filters ── */}
                         <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
@@ -450,6 +543,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                     placeholder="ค้นหา"
                                     value={searchText}
                                     onChange={(val) => setSearchText(val)}
+                                    disabled={!canSearchOrders}
                                 />
                                 <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                                     <Space wrap size={10}>
@@ -462,6 +556,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                             ]}
                                             value={filters.status as DeliveryListStatusFilter}
                                             onChange={(v) => updateFilter("status", v)}
+                                            disabled={!canFilterOrders}
                                             style={{ minWidth: 140 }}
                                         />
                                         <ModalSelector<CreatedSort>
@@ -472,6 +567,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                             ]}
                                             value={createdSort}
                                             onChange={(v) => setCreatedSort(v)}
+                                            disabled={!canFilterOrders}
                                             style={{ minWidth: 140 }}
                                         />
                                     </Space>

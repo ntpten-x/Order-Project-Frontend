@@ -1,105 +1,155 @@
 # Permission Flow Coverage
 
-Generated: 2026-03-12T09:14:31.030Z
-Files with permission/menu checks: 65
-Unique keys discovered: 114
+Generated: 2026-03-18T17:33:43.265Z
+Files with permission/menu checks: 88
+Unique keys discovered: 253
 
 ## File Coverage
 
-- src/lib/rbac/menu-visibility.ts (145)
-  - audit.page, branches.page, category.page, delivery.page, discounts.page, menu.branch.home, menu.main.home, menu.main.orders, menu.main.stock, menu.main.users, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.print, menu.module.print-setting, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.list, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.pos.topping, menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, orders.page, payment_accounts.page, payment_method.page, print_settings.page, products.page, products_unit.page, reports.sales.page, shifts.page, shop_profile.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, topping.page, users.page
-- src/lib/rbac/page-permissions.ts (70)
-  - audit.page, branches.page, category.page, delivery.page, discounts.page, health_system.page, menu.main.home, orders.page, payment_accounts.page, payment_method.page, payments.page, permissions.page, print_settings.page, products.page, products_unit.page, reports.sales.page, shifts.page, shop_profile.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, topping.page, users.page
-- src/lib/rbac/permission-matrix.ts (50)
-  - api.audit, api.auth.csrf, api.auth.login, api.auth.logout, api.auth.me, api.auth.switch-branch, api.branches.read, api.branches.write, api.cron.keep-alive, api.health, api.permissions, api.pos.category.read, api.pos.category.write, api.pos.delivery.read, api.pos.delivery.write, api.pos.discounts.read, api.pos.discounts.write, api.pos.operations, api.pos.payment-accounts, api.pos.payment-method.read, api.pos.payment-method.write, api.pos.print-settings, api.pos.products-unit.read, api.pos.products-unit.write, api.pos.products.read, api.pos.products.write, api.pos.shop-profile.read, api.pos.shop-profile.write, api.pos.tables, api.pos.tables.manage, api.pos.topping.read, api.pos.topping.write, api.roles, api.stock, api.system.health, api.users, page.audit, page.branch, page.branch.manager, page.health-system, page.manager.slug, page.pos, page.pos.products.manage, page.pos.settings, page.print-settings, page.root, page.stock, page.users, public.login, public.offline
-- src/app/(main)/users/permissions/page.tsx (33)
-  - menu.branch.home, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.print, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.pos.topping, menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, permissions.page
-- src/components/pos/POSBottomNavigation.tsx (18)
-  - menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.list, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.pos.topping
+- src/lib/rbac/menu-visibility.ts (161)
+  - audit.page, branches.page, category.page, delivery.page, discounts.page, menu.branch.home, menu.main.home, menu.main.orders, menu.main.stock, menu.main.users, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.print, menu.module.print-setting, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.list, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.pos.topping, menu.pos.toppingGroup, menu.stock.buying, menu.stock.category, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, orders.channel_create.feature, orders.channels.feature, orders.detail.feature, orders.page, orders.serving_board.feature, orders.summary.feature, payment_accounts.manager.feature, payment_accounts.page, payment_method.page, pos_settings.page, print_settings.page, products.page, products_unit.page, reports.sales.page, shift_history.page, shifts.close.feature, shifts.open.feature, shifts.page, shop_profile.contact.feature, shop_profile.identity.feature, stock.category.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, topping.page, topping_group.page, users.page
+- src/lib/rbac/page-permissions.ts (84)
+  - audit.page, branches.page, category.create.feature, category.manager.feature, category.page, delivery.create.feature, delivery.manager.feature, delivery.page, discounts.create.feature, discounts.manager.feature, discounts.page, health_system.page, menu.main.home, orders.channel_create.feature, orders.channels.feature, orders.detail.feature, orders.page, orders.serving_board.feature, payment_accounts.create.feature, payment_accounts.edit.feature, payment_accounts.manager.feature, payment_accounts.page, payment_method.create.feature, payment_method.manager.feature, payment_method.page, payments.checkout.feature, payments.page, permissions.page, pos_settings.page, print_settings.page, products.create.feature, products.manager.feature, products.page, products_unit.create.feature, products_unit.manager.feature, products_unit.page, qr_code.page, reports.sales.order_detail.feature, reports.sales.page, shift_history.page, shifts.page, stock.category.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.create.feature, tables.manager.feature, tables.page, topping.create.feature, topping.manager.feature, topping.page, topping_group.create.feature, topping_group.manager.feature, topping_group.page, users.page
+- src/lib/rbac/permission-matrix.ts (52)
+  - api.audit, api.auth.csrf, api.auth.login, api.auth.logout, api.auth.me, api.auth.switch-branch, api.branches.read, api.branches.write, api.cron.keep-alive, api.health, api.permissions, api.pos.category.read, api.pos.category.write, api.pos.delivery.read, api.pos.delivery.write, api.pos.discounts.read, api.pos.discounts.write, api.pos.operations, api.pos.payment-accounts, api.pos.payment-method.read, api.pos.payment-method.write, api.pos.print-settings, api.pos.products-unit.read, api.pos.products-unit.write, api.pos.products.read, api.pos.products.write, api.pos.shop-profile.read, api.pos.shop-profile.write, api.pos.tables.read, api.pos.tables.write, api.pos.topping-group.read, api.pos.topping-group.write, api.pos.topping.read, api.pos.topping.write, api.roles, api.stock, api.system.health, api.users, page.audit, page.branch, page.branch.manager, page.health-system, page.manager.slug, page.pos, page.pos.products.manage, page.pos.settings, page.print-settings, page.root, page.stock, page.users, public.login, public.offline
+- src/app/(main)/users/permissions/page.tsx (36)
+  - menu.branch.home, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.print, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.pos.topping, menu.pos.toppingGroup, menu.stock.buying, menu.stock.category, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, permissions.page
+- src/app/(main)/pos/products/manage/[...mode]/page.tsx (19)
+  - products.catalog.feature, products.create.feature, products.delete.feature, products.manager.feature, products.page, products.pricing.feature, products.status.feature, products.structure.feature
+- src/components/pos/POSBottomNavigation.tsx (19)
+  - menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.list, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.pos.topping, menu.pos.toppingGroup
+- src/app/(main)/pos/products/page.tsx (16)
+  - products.catalog.feature, products.create.feature, products.delete.feature, products.filter.feature, products.manager.feature, products.page, products.pricing.feature, products.search.feature, products.status.feature, products.structure.feature
+- src/app/(main)/pos/discounts/page.tsx (14)
+  - discounts.create.feature, discounts.delete.feature, discounts.edit.feature, discounts.filter.feature, discounts.manager.feature, discounts.page, discounts.pricing.feature, discounts.search.feature, discounts.status.feature
+- src/app/(main)/pos/topping/page.tsx (14)
+  - topping.catalog.feature, topping.create.feature, topping.delete.feature, topping.filter.feature, topping.manager.feature, topping.page, topping.pricing.feature, topping.search.feature, topping.status.feature
+- src/lib/rbac/order-workflow-capabilities.ts (14)
+  - orders.cancel.feature, orders.channel_create.feature, orders.channels.feature, orders.detail.feature, orders.edit.feature, orders.filter.feature, orders.item_status.feature, orders.line_items.feature, orders.page, orders.search.feature, orders.serving_board.feature, orders.serving_board_update.feature, orders.summary.feature, payments.checkout.feature
+- src/app/(main)/pos/tables/page.tsx (13)
+  - qr_code.page, tables.create.feature, tables.delete.feature, tables.edit.feature, tables.filter.feature, tables.manager.feature, tables.page, tables.search.feature, tables.status.feature
+- src/lib/rbac/settings-capabilities.ts (13)
+  - payment_accounts.activate.feature, payment_accounts.create.feature, payment_accounts.delete.feature, payment_accounts.detail.feature, payment_accounts.edit.feature, payment_accounts.filter.feature, payment_accounts.manager.feature, payment_accounts.page, payment_accounts.search.feature, pos_settings.page, shop_profile.contact.feature, shop_profile.identity.feature, shop_profile.page
+- src/app/(main)/pos/category/page.tsx (12)
+  - category.create.feature, category.delete.feature, category.edit.feature, category.filter.feature, category.manager.feature, category.page, category.search.feature, category.status.feature
+- src/app/(main)/pos/delivery/page.tsx (12)
+  - delivery.create.feature, delivery.delete.feature, delivery.edit.feature, delivery.filter.feature, delivery.manager.feature, delivery.page, delivery.search.feature, delivery.status.feature
+- src/app/(main)/pos/discounts/manager/[...mode]/page.tsx (12)
+  - discounts.create.feature, discounts.delete.feature, discounts.edit.feature, discounts.manager.feature, discounts.page, discounts.pricing.feature, discounts.status.feature
+- src/app/(main)/pos/paymentMethod/page.tsx (12)
+  - payment_method.catalog.feature, payment_method.create.feature, payment_method.delete.feature, payment_method.filter.feature, payment_method.manager.feature, payment_method.page, payment_method.search.feature, payment_method.status.feature
+- src/app/(main)/pos/productsUnit/page.tsx (12)
+  - products_unit.create.feature, products_unit.delete.feature, products_unit.edit.feature, products_unit.filter.feature, products_unit.manager.feature, products_unit.page, products_unit.search.feature, products_unit.status.feature
+- src/app/(main)/pos/qr-code/page.tsx (12)
+  - qr_code.bulk_export.feature, qr_code.customer_link.feature, qr_code.filter.feature, qr_code.preview.feature, qr_code.rotate.feature, qr_code.search.feature, qr_code.single_export.feature, qr_code.takeaway.feature, qr_code.takeaway_customer_link.feature, qr_code.takeaway_export.feature, qr_code.takeaway_rotate.feature, tables.page
+- src/app/(main)/pos/toppingGroup/page.tsx (12)
+  - topping_group.create.feature, topping_group.delete.feature, topping_group.edit.feature, topping_group.filter.feature, topping_group.manager.feature, topping_group.page, topping_group.search.feature, topping_group.status.feature
+- src/app/(main)/print-setting/page.tsx (12)
+  - print_settings.automation.feature, print_settings.branch_defaults.feature, print_settings.layout.feature, print_settings.override_policy.feature, print_settings.page, print_settings.presets.feature, print_settings.preview.feature, print_settings.publish.feature, print_settings.reset.feature, print_settings.test_print.feature, print_settings.visibility.feature
+- src/lib/rbac/qr-code-capabilities.ts (12)
+  - qr_code.bulk_export.feature, qr_code.customer_link.feature, qr_code.filter.feature, qr_code.page, qr_code.preview.feature, qr_code.rotate.feature, qr_code.search.feature, qr_code.single_export.feature, qr_code.takeaway.feature, qr_code.takeaway_customer_link.feature, qr_code.takeaway_export.feature, qr_code.takeaway_rotate.feature
+- src/app/(main)/pos/topping/manager/[...mode]/page.tsx (11)
+  - topping.catalog.feature, topping.create.feature, topping.delete.feature, topping.manager.feature, topping.page, topping.pricing.feature, topping.status.feature
+- src/lib/rbac/print-settings-capabilities.ts (11)
+  - print_settings.automation.feature, print_settings.branch_defaults.feature, print_settings.layout.feature, print_settings.override_policy.feature, print_settings.page, print_settings.presets.feature, print_settings.preview.feature, print_settings.publish.feature, print_settings.reset.feature, print_settings.test_print.feature, print_settings.visibility.feature
+- src/app/(main)/pos/category/manager/[...mode]/page.tsx (10)
+  - category.create.feature, category.delete.feature, category.edit.feature, category.manager.feature, category.page, category.status.feature
+- src/app/(main)/pos/delivery/manager/[...mode]/page.tsx (10)
+  - delivery.create.feature, delivery.delete.feature, delivery.edit.feature, delivery.manager.feature, delivery.page, delivery.status.feature
+- src/app/(main)/pos/paymentMethod/manager/[...mode]/page.tsx (10)
+  - payment_method.catalog.feature, payment_method.create.feature, payment_method.delete.feature, payment_method.manager.feature, payment_method.page, payment_method.status.feature
+- src/app/(main)/pos/productsUnit/manager/[...mode]/page.tsx (10)
+  - products_unit.create.feature, products_unit.delete.feature, products_unit.edit.feature, products_unit.manager.feature, products_unit.page, products_unit.status.feature
+- src/app/(main)/pos/settings/page.tsx (10)
+  - payment_accounts.activate.feature, payment_accounts.create.feature, payment_accounts.delete.feature, payment_accounts.edit.feature, payment_accounts.manager.feature, payment_accounts.page, pos_settings.page, shop_profile.contact.feature, shop_profile.identity.feature, shop_profile.page
+- src/app/(main)/pos/tables/manager/[...mode]/page.tsx (10)
+  - qr_code.preview.feature, tables.create.feature, tables.delete.feature, tables.edit.feature, tables.manager.feature, tables.page, tables.status.feature
+- src/lib/rbac/products-capabilities.ts (10)
+  - products.catalog.feature, products.create.feature, products.delete.feature, products.filter.feature, products.manager.feature, products.page, products.pricing.feature, products.search.feature, products.status.feature, products.structure.feature
 - src/__tests__/rbac/menu-visibility.test.ts (10)
   - menu.pos.orders, menu.unknown.any, orders.page
+- src/app/(main)/pos/channels/takeaway/page.tsx (9)
+  - orders.channel_create.feature, orders.channels.feature, orders.filter.feature, orders.search.feature, orders.summary.feature, qr_code.takeaway.feature, qr_code.takeaway_customer_link.feature, qr_code.takeaway_export.feature, qr_code.takeaway_rotate.feature
+- src/app/(main)/pos/toppingGroup/manager/[...mode]/page.tsx (9)
+  - topping_group.create.feature, topping_group.delete.feature, topping_group.edit.feature, topping_group.manager.feature, topping_group.page, topping_group.status.feature
+- src/lib/rbac/dashboard-capabilities.ts (9)
+  - reports.sales.channels.feature, reports.sales.export.feature, reports.sales.filters.feature, reports.sales.order_detail.feature, reports.sales.page, reports.sales.receipt.feature, reports.sales.recent_orders.feature, reports.sales.summary.feature, reports.sales.top_items.feature
+- src/lib/rbac/discounts-capabilities.ts (9)
+  - discounts.create.feature, discounts.delete.feature, discounts.edit.feature, discounts.filter.feature, discounts.manager.feature, discounts.page, discounts.pricing.feature, discounts.search.feature, discounts.status.feature
+- src/lib/rbac/shift-capabilities.ts (9)
+  - shifts.channels.feature, shifts.close.feature, shifts.close_preview.feature, shifts.financials.feature, shifts.history_nav.feature, shifts.open.feature, shifts.page, shifts.summary.feature, shifts.top_products.feature
+- src/lib/rbac/topping-capabilities.ts (9)
+  - topping.catalog.feature, topping.create.feature, topping.delete.feature, topping.filter.feature, topping.manager.feature, topping.page, topping.pricing.feature, topping.search.feature, topping.status.feature
+- src/app/(main)/pos/dashboard/page.tsx (8)
+  - reports.sales.channels.feature, reports.sales.export.feature, reports.sales.filters.feature, reports.sales.order_detail.feature, reports.sales.page, reports.sales.recent_orders.feature, reports.sales.summary.feature, reports.sales.top_items.feature
+- src/app/(main)/pos/settings/payment-accounts/[...mode]/page.tsx (8)
+  - payment_accounts.activate.feature, payment_accounts.create.feature, payment_accounts.delete.feature, payment_accounts.detail.feature, payment_accounts.edit.feature, payment_accounts.filter.feature, payment_accounts.manager.feature, payment_accounts.search.feature
+- src/app/(main)/pos/shift/page.tsx (8)
+  - shifts.channels.feature, shifts.close.feature, shifts.close_preview.feature, shifts.financials.feature, shifts.history_nav.feature, shifts.open.feature, shifts.summary.feature, shifts.top_products.feature
 - src/app/(main)/users/manage/[...mode]/page.tsx (8)
   - branches.page, roles.page, users.page
+- src/components/stock/StockBottomNavigation.tsx (8)
+  - menu.stock.buying, menu.stock.category, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders
+- src/lib/rbac/category-capabilities.ts (8)
+  - category.create.feature, category.delete.feature, category.edit.feature, category.filter.feature, category.manager.feature, category.page, category.search.feature, category.status.feature
+- src/lib/rbac/delivery-capabilities.ts (8)
+  - delivery.create.feature, delivery.delete.feature, delivery.edit.feature, delivery.filter.feature, delivery.manager.feature, delivery.page, delivery.search.feature, delivery.status.feature
+- src/lib/rbac/payment-method-capabilities.ts (8)
+  - payment_method.catalog.feature, payment_method.create.feature, payment_method.delete.feature, payment_method.filter.feature, payment_method.manager.feature, payment_method.page, payment_method.search.feature, payment_method.status.feature
+- src/lib/rbac/products-unit-capabilities.ts (8)
+  - products_unit.create.feature, products_unit.delete.feature, products_unit.edit.feature, products_unit.filter.feature, products_unit.manager.feature, products_unit.page, products_unit.search.feature, products_unit.status.feature
+- src/lib/rbac/tables-capabilities.ts (8)
+  - tables.create.feature, tables.delete.feature, tables.edit.feature, tables.filter.feature, tables.manager.feature, tables.page, tables.search.feature, tables.status.feature
+- src/lib/rbac/topping-group-capabilities.ts (8)
+  - topping_group.create.feature, topping_group.delete.feature, topping_group.edit.feature, topping_group.filter.feature, topping_group.manager.feature, topping_group.page, topping_group.search.feature, topping_group.status.feature
 - src/app/(main)/page.tsx (7)
   - health_system.page, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.print, menu.module.stock, menu.module.users
-- src/components/stock/StockBottomNavigation.tsx (7)
-  - menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders
+- src/app/(main)/pos/shiftHistory/page.tsx (6)
+  - shift_history.filter.feature, shift_history.financials.feature, shift_history.search.feature, shift_history.stats.feature, shift_history.summary.feature, shifts.page
+- src/lib/rbac/shift-history-capabilities.ts (6)
+  - shift_history.filter.feature, shift_history.financials.feature, shift_history.page, shift_history.search.feature, shift_history.stats.feature, shift_history.summary.feature
+- src/app/(main)/pos/channels/delivery/page.tsx (5)
+  - orders.channel_create.feature, orders.channels.feature, orders.filter.feature, orders.search.feature, orders.summary.feature
+- src/app/(main)/pos/orders/[...ordersId]/page.tsx (5)
+  - orders.cancel.feature, orders.detail.feature, orders.edit.feature, orders.item_status.feature, orders.line_items.feature
+- src/app/(main)/pos/orders/page.tsx (5)
+  - orders.detail.feature, orders.filter.feature, orders.page, orders.search.feature, orders.summary.feature
+- src/app/(main)/stock/ingredients/page.tsx (5)
+  - stock.category.page, stock.ingredients.page
 - src/components/BottomNavigation.tsx (5)
   - menu.main.home, menu.main.orders, menu.main.stock, menu.main.users
 - src/app/(main)/branch/page.tsx (4)
   - branches.page
-- src/app/(main)/pos/items/delivery/[...deliveryId]/page.tsx (4)
-  - orders.cancel.feature, orders.edit.feature, orders.page, payments.page
-- src/app/(main)/pos/items/payment/[...paymentId]/page.tsx (4)
-  - orders.cancel.feature, orders.edit.feature, orders.page, payments.page
-- src/app/(main)/stock/ingredients/page.tsx (4)
-  - stock.ingredients.page
+- src/app/(main)/pos/list/page.tsx (4)
+  - orders.search.feature, orders.serving_board.feature, orders.serving_board_update.feature
+- src/app/(main)/stock/category/page.tsx (4)
+  - stock.category.page
+- src/app/(main)/stock/ingredients/manage/[...mode]/page.tsx (4)
+  - stock.category.page, stock.ingredients.page
 - src/app/(main)/stock/ingredientsUnit/page.tsx (4)
   - stock.ingredients_unit.page
 - src/app/(main)/users/page.tsx (4)
   - users.page
 - src/app/(main)/branch/manager/[...mode]/page.tsx (3)
   - branches.page
-- src/app/(main)/pos/category/manager/[...mode]/page.tsx (3)
-  - category.page
-- src/app/(main)/pos/category/page.tsx (3)
-  - category.page
-- src/app/(main)/pos/delivery/manager/[...mode]/page.tsx (3)
-  - delivery.page
-- src/app/(main)/pos/delivery/page.tsx (3)
-  - delivery.page
-- src/app/(main)/pos/discounts/manager/[...mode]/page.tsx (3)
-  - discounts.page
-- src/app/(main)/pos/discounts/page.tsx (3)
-  - discounts.page
-- src/app/(main)/pos/paymentMethod/manager/[...mode]/page.tsx (3)
-  - payment_method.page
-- src/app/(main)/pos/paymentMethod/page.tsx (3)
-  - payment_method.page
-- src/app/(main)/pos/products/manage/[...mode]/page.tsx (3)
-  - products.page
-- src/app/(main)/pos/products/page.tsx (3)
-  - products.page
-- src/app/(main)/pos/productsUnit/manager/[...mode]/page.tsx (3)
-  - products_unit.page
-- src/app/(main)/pos/productsUnit/page.tsx (3)
-  - products_unit.page
-- src/app/(main)/pos/settings/payment-accounts/[...mode]/page.tsx (3)
-  - payment_accounts.page
-- src/app/(main)/pos/tables/manager/[...mode]/page.tsx (3)
-  - tables.page
-- src/app/(main)/pos/tables/page.tsx (3)
-  - tables.page
-- src/app/(main)/pos/topping/manager/[...mode]/page.tsx (3)
-  - topping.page
-- src/app/(main)/pos/topping/page.tsx (3)
-  - topping.page
-- src/app/(main)/stock/ingredients/manage/[...mode]/page.tsx (3)
-  - stock.ingredients.page
+- src/app/(main)/pos/channels/page.tsx (3)
+  - orders.channel_create.feature, orders.channels.feature, orders.summary.feature
+- src/app/(main)/pos/dashboard/[...id]/page.tsx (3)
+  - reports.sales.order_detail.feature, reports.sales.receipt.feature
+- src/app/(main)/pos/items/delivery/[...deliveryId]/page.tsx (3)
+  - orders.cancel.feature, orders.edit.feature, payments.checkout.feature
+- src/app/(main)/pos/items/payment/[...paymentId]/page.tsx (3)
+  - orders.cancel.feature, orders.edit.feature, payments.checkout.feature
+- src/app/(main)/pos/page.tsx (3)
+  - orders.channel_create.feature, orders.channels.feature, orders.summary.feature
+- src/app/(main)/stock/category/manage/[...mode]/page.tsx (3)
+  - stock.category.page
 - src/app/(main)/stock/ingredientsUnit/manage/[...mode]/page.tsx (3)
   - stock.ingredients_unit.page
 - src/app/(main)/stock/items/page.tsx (3)
   - stock.orders.page
 - src/app/(main)/audit/page.tsx (2)
   - audit.page, branches.page
-- src/app/(main)/pos/channels/delivery/page.tsx (2)
-  - orders.page
-- src/app/(main)/pos/channels/page.tsx (2)
-  - orders.page
-- src/app/(main)/pos/channels/takeaway/page.tsx (2)
-  - orders.page
-- src/app/(main)/pos/orders/[...ordersId]/page.tsx (2)
-  - orders.cancel.feature, orders.page
-- src/app/(main)/pos/page.tsx (2)
-  - orders.page
-- src/app/(main)/pos/qr-code/page.tsx (2)
-  - orders.page, tables.page
-- src/app/(main)/pos/settings/page.tsx (2)
-  - payment_accounts.page
-- src/app/(main)/pos/shift/page.tsx (2)
-  - shifts.page
-- src/app/(main)/print-setting/page.tsx (2)
-  - print_settings.page
 - src/app/(main)/stock/buying/page.tsx (2)
   - stock.orders.page
 - src/app/(main)/stock/history/page.tsx (2)
@@ -110,26 +160,22 @@ Unique keys discovered: 114
   - menu.flatMap, menu.some
 - src/app/order/[token]/page.tsx (2)
   - menu.flatMap, menu.some
+- src/components/pos/channels/POSOrderComposerGuard.tsx (2)
+  - orders.channel_create.feature, orders.channels.feature
+- src/components/pos/shifts/CloseShiftModal.tsx (2)
+  - shifts.close.feature, shifts.close_preview.feature
+- src/app/(main)/Health-System/page.tsx (1)
+  - health_system.page
 - src/app/(main)/pos/channels/dine-in/page.tsx (1)
   - tables.page
-- src/app/(main)/pos/dashboard/[...id]/page.tsx (1)
-  - reports.sales.page
-- src/app/(main)/pos/dashboard/page.tsx (1)
-  - reports.sales.page
-- src/app/(main)/pos/list/page.tsx (1)
-  - orders.page
-- src/app/(main)/pos/orders/page.tsx (1)
-  - orders.page
 - src/components/audit/AuditBottomNavigation.tsx (1)
   - menu.module.audit
 - src/components/branch/BranchBottomNavigation.tsx (1)
   - menu.branch.home
-- src/components/pos/channels/POSOrderComposerGuard.tsx (1)
-  - orders.page
 - src/components/pos/shared/RequireOpenShift.tsx (1)
-  - shifts.page
+  - shifts.open.feature
 - src/components/pos/shifts/OpenShiftModal.tsx (1)
-  - shifts.page
+  - shifts.open.feature
 - src/components/stock/CartDrawer.tsx (1)
   - stock.orders.page
 - src/components/users/UsersBottomNavigation.tsx (1)
@@ -167,8 +213,10 @@ Unique keys discovered: 114
 - api.pos.products.write
 - api.pos.shop-profile.read
 - api.pos.shop-profile.write
-- api.pos.tables
-- api.pos.tables.manage
+- api.pos.tables.read
+- api.pos.tables.write
+- api.pos.topping-group.read
+- api.pos.topping-group.write
 - api.pos.topping.read
 - api.pos.topping.write
 - api.roles
@@ -177,9 +225,31 @@ Unique keys discovered: 114
 - api.users
 - audit.page
 - branches.page
+- category.create.feature
+- category.delete.feature
+- category.edit.feature
+- category.filter.feature
+- category.manager.feature
 - category.page
+- category.search.feature
+- category.status.feature
+- delivery.create.feature
+- delivery.delete.feature
+- delivery.edit.feature
+- delivery.filter.feature
+- delivery.manager.feature
 - delivery.page
+- delivery.search.feature
+- delivery.status.feature
+- discounts.create.feature
+- discounts.delete.feature
+- discounts.edit.feature
+- discounts.filter.feature
+- discounts.manager.feature
 - discounts.page
+- discounts.pricing.feature
+- discounts.search.feature
+- discounts.status.feature
 - health_system.page
 - menu.branch.home
 - menu.flatMap
@@ -210,8 +280,10 @@ Unique keys discovered: 114
 - menu.pos.shiftHistory
 - menu.pos.tables
 - menu.pos.topping
+- menu.pos.toppingGroup
 - menu.some
 - menu.stock.buying
+- menu.stock.category
 - menu.stock.history
 - menu.stock.home
 - menu.stock.ingredients
@@ -220,8 +292,18 @@ Unique keys discovered: 114
 - menu.unknown.any
 - menu.users.home
 - orders.cancel.feature
+- orders.channel_create.feature
+- orders.channels.feature
+- orders.detail.feature
 - orders.edit.feature
+- orders.filter.feature
+- orders.item_status.feature
+- orders.line_items.feature
 - orders.page
+- orders.search.feature
+- orders.serving_board.feature
+- orders.serving_board_update.feature
+- orders.summary.feature
 - page.audit
 - page.branch
 - page.branch.manager
@@ -234,22 +316,125 @@ Unique keys discovered: 114
 - page.root
 - page.stock
 - page.users
+- payment_accounts.activate.feature
+- payment_accounts.create.feature
+- payment_accounts.delete.feature
+- payment_accounts.detail.feature
+- payment_accounts.edit.feature
+- payment_accounts.filter.feature
+- payment_accounts.manager.feature
 - payment_accounts.page
+- payment_accounts.search.feature
+- payment_method.catalog.feature
+- payment_method.create.feature
+- payment_method.delete.feature
+- payment_method.filter.feature
+- payment_method.manager.feature
 - payment_method.page
+- payment_method.search.feature
+- payment_method.status.feature
+- payments.checkout.feature
 - payments.page
 - permissions.page
+- pos_settings.page
+- print_settings.automation.feature
+- print_settings.branch_defaults.feature
+- print_settings.layout.feature
+- print_settings.override_policy.feature
 - print_settings.page
+- print_settings.presets.feature
+- print_settings.preview.feature
+- print_settings.publish.feature
+- print_settings.reset.feature
+- print_settings.test_print.feature
+- print_settings.visibility.feature
+- products.catalog.feature
+- products.create.feature
+- products.delete.feature
+- products.filter.feature
+- products.manager.feature
 - products.page
+- products.pricing.feature
+- products.search.feature
+- products.status.feature
+- products.structure.feature
+- products_unit.create.feature
+- products_unit.delete.feature
+- products_unit.edit.feature
+- products_unit.filter.feature
+- products_unit.manager.feature
 - products_unit.page
+- products_unit.search.feature
+- products_unit.status.feature
 - public.login
 - public.offline
+- qr_code.bulk_export.feature
+- qr_code.customer_link.feature
+- qr_code.filter.feature
+- qr_code.page
+- qr_code.preview.feature
+- qr_code.rotate.feature
+- qr_code.search.feature
+- qr_code.single_export.feature
+- qr_code.takeaway.feature
+- qr_code.takeaway_customer_link.feature
+- qr_code.takeaway_export.feature
+- qr_code.takeaway_rotate.feature
+- reports.sales.channels.feature
+- reports.sales.export.feature
+- reports.sales.filters.feature
+- reports.sales.order_detail.feature
 - reports.sales.page
+- reports.sales.receipt.feature
+- reports.sales.recent_orders.feature
+- reports.sales.summary.feature
+- reports.sales.top_items.feature
 - roles.page
+- shift_history.filter.feature
+- shift_history.financials.feature
+- shift_history.page
+- shift_history.search.feature
+- shift_history.stats.feature
+- shift_history.summary.feature
+- shifts.channels.feature
+- shifts.close.feature
+- shifts.close_preview.feature
+- shifts.financials.feature
+- shifts.history_nav.feature
+- shifts.open.feature
 - shifts.page
+- shifts.summary.feature
+- shifts.top_products.feature
+- shop_profile.contact.feature
+- shop_profile.identity.feature
 - shop_profile.page
+- stock.category.page
 - stock.ingredients.page
 - stock.ingredients_unit.page
 - stock.orders.page
+- tables.create.feature
+- tables.delete.feature
+- tables.edit.feature
+- tables.filter.feature
+- tables.manager.feature
 - tables.page
+- tables.search.feature
+- tables.status.feature
+- topping.catalog.feature
+- topping.create.feature
+- topping.delete.feature
+- topping.filter.feature
+- topping.manager.feature
 - topping.page
+- topping.pricing.feature
+- topping.search.feature
+- topping.status.feature
+- topping_group.create.feature
+- topping_group.delete.feature
+- topping_group.edit.feature
+- topping_group.filter.feature
+- topping_group.manager.feature
+- topping_group.page
+- topping_group.search.feature
+- topping_group.status.feature
 - users.page

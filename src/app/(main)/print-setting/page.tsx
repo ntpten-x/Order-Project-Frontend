@@ -57,6 +57,11 @@ import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useRealtimeRefresh } from '../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../utils/realtimeEvents';
 import {
+    PRINT_SETTINGS_CAPABILITIES,
+    PRINT_SETTINGS_ROLE_BLUEPRINT,
+    getPrintSettingsCapability,
+} from '../../../lib/rbac/print-settings-capabilities';
+import {
     PRINT_DOCUMENT_META,
     PRINT_PRESET_OPTIONS,
     applyPresetToDocument,
@@ -223,7 +228,19 @@ export default function PrintSettingPage() {
         requiredPermission: { resourceKey: 'print_settings.page', action: 'view' },
     });
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canUpdateSettings = can('print_settings.page', 'update');
+    const canUpdatePage = can('print_settings.page', 'update');
+    const canPreviewSettings = can('print_settings.preview.feature', 'view');
+    const canTestPrint = can('print_settings.test_print.feature', 'access');
+    const canEditPresets = can('print_settings.presets.feature', 'update');
+    const canEditLayout = can('print_settings.layout.feature', 'update');
+    const canEditVisibility = can('print_settings.visibility.feature', 'update');
+    const canEditAutomation = can('print_settings.automation.feature', 'update');
+    const canEditBranchDefaults = can('print_settings.branch_defaults.feature', 'update');
+    const canEditOverridePolicy = can('print_settings.override_policy.feature', 'update');
+    const canResetSettings = can('print_settings.reset.feature', 'update');
+    const canPublishSettings = can('print_settings.publish.feature', 'update');
+    const canEditAnySetting = canEditPresets || canEditLayout || canEditVisibility || canEditAutomation || canEditBranchDefaults || canEditOverridePolicy;
+    const canSaveChanges = canUpdatePage && canPublishSettings;
 
     const [selectedDocument, setSelectedDocument] = useState<PrintDocumentType>('receipt');
     const [settings, setSettings] = useState<BranchPrintSettings>(() => initialCachedSettingsRef.current ?? createDefaultPrintSettings());
@@ -236,6 +253,18 @@ export default function PrintSettingPage() {
     const [branchLabel, setBranchLabel] = useState(() => user?.branch?.branch_name || 'สาขาปัจจุบัน');
 
     const branchName = branchLabel;
+    const activeRoleBlueprint = useMemo(
+        () => PRINT_SETTINGS_ROLE_BLUEPRINT.find((item) => item.roleName === user?.role) ?? PRINT_SETTINGS_ROLE_BLUEPRINT[2],
+        [user?.role]
+    );
+    const restrictedCapabilities = useMemo(
+        () => PRINT_SETTINGS_CAPABILITIES.filter((item) => !can(item.resourceKey, item.action)).map((item) => item.title),
+        [can]
+    );
+    const enabledCapabilities = useMemo(
+        () => PRINT_SETTINGS_CAPABILITIES.filter((item) => can(item.resourceKey, item.action)).map((item) => item.title),
+        [can]
+    );
 
     /* ─── Data logic (same as original) ────────────────────────────────── */
 
@@ -386,7 +415,7 @@ export default function PrintSettingPage() {
     }, [fetchSettings, runWithDiscardGuard]);
 
     const handleSave = useCallback(async () => {
-        if (!canUpdateSettings) { message.error('คุณไม่มีสิทธิ์แก้ไขการตั้งค่าการพิมพ์'); return; }
+        if (!canSaveChanges) { message.error('คุณไม่มีสิทธิ์บันทึกการตั้งค่าการพิมพ์'); return; }
         setSaving(true);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -400,9 +429,13 @@ export default function PrintSettingPage() {
         } finally {
             setSaving(false);
         }
-    }, [applyLoadedSettings, canUpdateSettings, settings]);
+    }, [applyLoadedSettings, canSaveChanges, settings]);
 
     const handleResetAll = useCallback(() => {
+        if (!canResetSettings) {
+            message.error('คุณไม่มีสิทธิ์รีเซ็ตค่าการพิมพ์');
+            return;
+        }
         Modal.confirm({
             centered: true,
             title: 'คืนค่าเริ่มต้นทั้งหมด?',
@@ -415,15 +448,23 @@ export default function PrintSettingPage() {
                 setSettings((prev) => mergePrintSettings(defaults, { id: prev.id, branch_id: prev.branch_id, created_at: prev.created_at }));
             },
         });
-    }, []);
+    }, [canResetSettings]);
 
     const handleResetDocument = useCallback(() => {
+        if (!canResetSettings) {
+            message.error('คุณไม่มีสิทธิ์รีเซ็ตค่าการพิมพ์');
+            return;
+        }
         const defaults = createDefaultPrintSettings().documents[selectedDocument];
         const nextDocument = currentDocument.unit === defaults.unit ? defaults : convertDocumentUnit(defaults, currentDocument.unit);
         updateDocument(nextDocument);
-    }, [currentDocument.unit, selectedDocument, updateDocument]);
+    }, [canResetSettings, currentDocument.unit, selectedDocument, updateDocument]);
 
     const handlePrintTest = useCallback(() => {
+        if (!canTestPrint) {
+            message.error('คุณไม่มีสิทธิ์ทดสอบพิมพ์');
+            return;
+        }
         setPrinting(true);
         const windowRef = reservePrintWindow(`ทดสอบ - ${selectedMeta.label}`);
         if (!windowRef) { message.error('เบราว์เซอร์บล็อก popup'); setPrinting(false); return; }
@@ -444,7 +485,7 @@ export default function PrintSettingPage() {
         } finally {
             setPrinting(false);
         }
-    }, [branchName, currentDocument, selectedDocument, selectedMeta.label]);
+    }, [branchName, canTestPrint, currentDocument, selectedDocument, selectedMeta.label]);
 
     /* ─── Guards ────────────────────────────────────────────────────────── */
 
@@ -491,15 +532,17 @@ export default function PrintSettingPage() {
                         <Tooltip title="โหลดค่าล่าสุดจากระบบ">
                             <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={refreshing} />
                         </Tooltip>
-                        <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>
-                            {!isMobile && 'ทดสอบพิมพ์'}
-                        </Button>
+                        <Tooltip title={canTestPrint ? 'พิมพ์ตัวอย่างเพื่อตรวจสอบผลลัพธ์จริง' : 'ต้องมีสิทธิ์ทดสอบพิมพ์'}>
+                            <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing} disabled={!canTestPrint}>
+                                {!isMobile && 'ทดสอบพิมพ์'}
+                            </Button>
+                        </Tooltip>
                         <Button
                             type="primary"
                             icon={<SaveOutlined />}
                             onClick={handleSave}
                             loading={saving}
-                            disabled={!canUpdateSettings || !isDirty}
+                            disabled={!canSaveChanges || !isDirty}
                         >
                             บันทึก
                         </Button>
@@ -524,12 +567,30 @@ export default function PrintSettingPage() {
                     </div>
 
                     {/* Read-only alert */}
-                    {!canUpdateSettings && (
+                    {!canEditAnySetting && (
                         <Alert
                             showIcon
                             type="warning"
                             message="โหมดดูอย่างเดียว"
-                            description="บัญชีนี้ไม่มีสิทธิ์แก้ไขการตั้งค่าการพิมพ์"
+                            description="บัญชีนี้เห็นข้อมูลได้ แต่ไม่สามารถแก้ configuration ของระบบพิมพ์"
+                        />
+                    )}
+
+                    {canEditAnySetting && !canSaveChanges && (
+                        <Alert
+                            showIcon
+                            type="warning"
+                            message="แก้ไขได้แต่ยังเผยแพร่ไม่ได้"
+                            description="บัญชีนี้ปรับค่าเพื่อทดลองดูผลได้ แต่ไม่มีสิทธิ์บันทึกขึ้นระดับสาขา"
+                        />
+                    )}
+
+                    {restrictedCapabilities.length > 0 && (
+                        <Alert
+                            showIcon
+                            type={restrictedCapabilities.length >= 3 ? 'warning' : 'info'}
+                            message="สิทธิ์ของบัญชีนี้"
+                            description={`เปิดใช้ได้ ${enabledCapabilities.length} capability และถูกจำกัด ${restrictedCapabilities.length} capability: ${restrictedCapabilities.slice(0, 4).join(', ')}${restrictedCapabilities.length > 4 ? ' ...' : ''}`}
                         />
                     )}
 
@@ -554,6 +615,11 @@ export default function PrintSettingPage() {
                             <CopyOutlined className="ps-chip__icon" />
                             <span>สำเนา</span>
                             <span className="ps-chip__value">{currentDocument.copies}</span>
+                        </div>
+                        <div className="ps-chip">
+                            <SettingOutlined className="ps-chip__icon" />
+                            <span>บทบาท</span>
+                            <span className="ps-chip__value">{user?.role || 'Unknown'}</span>
                         </div>
                     </div>
 
@@ -604,6 +670,7 @@ export default function PrintSettingPage() {
                                     {/* Preset selection */}
                                     <div className="ps-section">
                                         <div className="ps-section__label">เลือกรูปแบบกระดาษ</div>
+                                        {!canEditPresets && <Text type="secondary">Preset ถูกล็อกโดยนโยบายสิทธิ์</Text>}
                                         <div className="ps-presets">
                                             {PRINT_PRESET_OPTIONS.map((preset) => {
                                                 const recommended = selectedMeta.recommendedPresets.includes(preset.value);
@@ -613,7 +680,7 @@ export default function PrintSettingPage() {
                                                         key={preset.value}
                                                         type="button"
                                                         className={`ps-preset ${active ? 'ps-preset--active' : ''}`}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditPresets}
                                                         onClick={() => updateDocument((current) => applyPresetToDocument(current, preset.value))}
                                                     >
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -632,6 +699,7 @@ export default function PrintSettingPage() {
                                     {/* Paper & printer */}
                                     <div className="ps-section">
                                         <div className="ps-section__label">เครื่องพิมพ์ & กระดาษ</div>
+                                        {!canEditLayout && <Text type="secondary">Layout, paper size, และ typography ถูกล็อกโดยนโยบายสิทธิ์</Text>}
                                         <Row gutter={[12, 14]}>
                                             <Col xs={24} sm={8}>
                                                 <div className="ps-field">
@@ -639,7 +707,7 @@ export default function PrintSettingPage() {
                                                     <Segmented<PrintPrinterProfile>
                                                         block
                                                         value={currentDocument.printer_profile}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         onChange={(value) => updateDocument({ printer_profile: value })}
                                                         options={[
                                                             { label: 'ความร้อน', value: 'thermal' },
@@ -655,7 +723,7 @@ export default function PrintSettingPage() {
                                                     <Segmented<PrintUnit>
                                                         block
                                                         value={currentDocument.unit}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         options={[{ label: 'มม.', value: 'mm' }, { label: 'นิ้ว', value: 'in' }]}
                                                         onChange={(value) => updateDocument((current) => convertDocumentUnit(current, value))}
                                                     />
@@ -667,7 +735,7 @@ export default function PrintSettingPage() {
                                                     <Segmented<'portrait' | 'landscape'>
                                                         block
                                                         value={currentDocument.orientation}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         options={[{ label: 'แนวตั้ง', value: 'portrait' }, { label: 'แนวนอน', value: 'landscape' }]}
                                                         onChange={(value) => updateDocument({ orientation: value })}
                                                     />
@@ -679,7 +747,7 @@ export default function PrintSettingPage() {
                                                     <InputNumber
                                                         min={1} max={500} precision={2}
                                                         value={currentDocument.width}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         onChange={(value) => updateDocument({ width: Number(value || 0) })}
                                                         addonAfter={currentDocument.unit}
                                                         style={{ width: '100%' }}
@@ -692,7 +760,7 @@ export default function PrintSettingPage() {
                                                     <Segmented<'auto' | 'fixed'>
                                                         block
                                                         value={currentDocument.height_mode}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         options={[{ label: 'อัตโนมัติ', value: 'auto' }, { label: 'กำหนด', value: 'fixed' }]}
                                                         onChange={(value) =>
                                                             updateDocument((current) => ({
@@ -710,7 +778,7 @@ export default function PrintSettingPage() {
                                                     <InputNumber
                                                         min={1} max={500} precision={2}
                                                         value={currentDocument.height ?? undefined}
-                                                        disabled={!canUpdateSettings || currentDocument.height_mode === 'auto'}
+                                                        disabled={!canEditLayout || currentDocument.height_mode === 'auto'}
                                                         onChange={(value) => updateDocument({ height: value == null ? null : Number(value) })}
                                                         addonAfter={currentDocument.unit}
                                                         style={{ width: '100%' }}
@@ -723,7 +791,7 @@ export default function PrintSettingPage() {
                                                     <InputNumber
                                                         min={1} max={5} precision={0}
                                                         value={currentDocument.copies}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         onChange={(value) => updateDocument({ copies: Number(value || 1) })}
                                                         style={{ width: '100%' }}
                                                     />
@@ -742,7 +810,7 @@ export default function PrintSettingPage() {
                                                     <Segmented<PrintDocumentSetting['density']>
                                                         block
                                                         value={currentDocument.density}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         options={[
                                                             { label: 'กะทัดรัด', value: 'compact' },
                                                             { label: 'สมดุล', value: 'comfortable' },
@@ -758,7 +826,7 @@ export default function PrintSettingPage() {
                                                     <Slider
                                                         min={70} max={180}
                                                         value={currentDocument.font_scale}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         onChange={(value) => updateDocument({ font_scale: Number(value) })}
                                                         tooltip={{ formatter: (value) => `${value}%` }}
                                                     />
@@ -770,7 +838,7 @@ export default function PrintSettingPage() {
                                                     <Slider
                                                         min={0.8} max={2} step={0.05}
                                                         value={currentDocument.line_spacing}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditLayout}
                                                         onChange={(value) => updateDocument({ line_spacing: Number(value) })}
                                                         tooltip={{ formatter: (value) => `${value}x` }}
                                                     />
@@ -780,10 +848,10 @@ export default function PrintSettingPage() {
                                                 <div className="ps-field">
                                                     <span className="ps-field__label">ระยะขอบกระดาษ</span>
                                                     <div className="ps-margin-grid">
-                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_top} disabled={!canUpdateSettings} addonBefore="บน" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_top: Number(value || 0) })} style={{ width: '100%' }} />
-                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_right} disabled={!canUpdateSettings} addonBefore="ขวา" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_right: Number(value || 0) })} style={{ width: '100%' }} />
-                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_bottom} disabled={!canUpdateSettings} addonBefore="ล่าง" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_bottom: Number(value || 0) })} style={{ width: '100%' }} />
-                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_left} disabled={!canUpdateSettings} addonBefore="ซ้าย" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_left: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_top} disabled={!canEditLayout} addonBefore="บน" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_top: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_right} disabled={!canEditLayout} addonBefore="ขวา" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_right: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_bottom} disabled={!canEditLayout} addonBefore="ล่าง" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_bottom: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_left} disabled={!canEditLayout} addonBefore="ซ้าย" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_left: Number(value || 0) })} style={{ width: '100%' }} />
                                                     </div>
                                                 </div>
                                             </Col>
@@ -793,6 +861,7 @@ export default function PrintSettingPage() {
                                     {/* Visibility toggles */}
                                     <div className="ps-section">
                                         <div className="ps-section__label">แสดงข้อมูลบนเอกสาร</div>
+                                        {!canEditVisibility && <Text type="secondary">Document visibility และ note ถูกล็อกโดยนโยบายสิทธิ์</Text>}
                                         <div className="ps-toggle-grid">
                                             {[
                                                 { key: 'enabled', label: 'เปิดใช้เอกสาร', value: currentDocument.enabled },
@@ -808,7 +877,7 @@ export default function PrintSettingPage() {
                                                     <Switch
                                                         size="small"
                                                         checked={item.value}
-                                                        disabled={!canUpdateSettings}
+                                                        disabled={!canEditVisibility}
                                                         onChange={(checked) => updateDocument({ [item.key]: checked } as Partial<PrintDocumentSetting>)}
                                                     />
                                                 </div>
@@ -823,7 +892,7 @@ export default function PrintSettingPage() {
                                             rows={2}
                                             maxLength={140}
                                             value={currentDocument.note || ''}
-                                            disabled={!canUpdateSettings}
+                                            disabled={!canEditVisibility}
                                             onChange={(event) => updateDocument({ note: event.target.value || null })}
                                             placeholder="เช่น ใช้กับเครื่องพิมพ์ 80 มม. หน้าเคาน์เตอร์"
                                             style={{ borderRadius: 10 }}
@@ -832,10 +901,10 @@ export default function PrintSettingPage() {
 
                                     {/* Actions */}
                                     <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                                        <Button icon={<UndoOutlined />} onClick={handleResetDocument} disabled={!canUpdateSettings}>
+                                        <Button icon={<UndoOutlined />} onClick={handleResetDocument} disabled={!canResetSettings}>
                                             คืนค่าเอกสารนี้
                                         </Button>
-                                        <Button onClick={handleResetAll} disabled={!canUpdateSettings}>
+                                        <Button onClick={handleResetAll} disabled={!canResetSettings}>
                                             คืนค่าทั้งหมด
                                         </Button>
                                     </div>
@@ -852,15 +921,26 @@ export default function PrintSettingPage() {
                                     <Tag color="geekblue">{formatPaperSize(currentDocument)}</Tag>
                                 </div>
                                 <div className="ps-card__body--compact">
-                                    <DocumentPreview documentType={selectedDocument} setting={currentDocument} branchName={branchName} />
+                                    {canPreviewSettings ? (
+                                        <DocumentPreview documentType={selectedDocument} setting={currentDocument} branchName={branchName} />
+                                    ) : (
+                                        <Alert
+                                            showIcon
+                                            type="warning"
+                                            message="พรีวิวถูกจำกัด"
+                                            description="บัญชีนี้ไม่มีสิทธิ์ดูตัวอย่างเอกสารสดของหน้าตั้งค่าการพิมพ์"
+                                        />
+                                    )}
 
-                                    <div className="ps-preview-info" style={{ marginTop: 14 }}>
-                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">เครื่องพิมพ์</span><span className="ps-preview-info__value">{printerProfileLabel[currentDocument.printer_profile]}</span></div>
-                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">ตัวอักษร/บรรทัด</span><span className="ps-preview-info__value">~{charsPerLine}</span></div>
-                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">ความหนาแน่น</span><span className="ps-preview-info__value">{densityLabel[currentDocument.density]}</span></div>
-                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">ขอบ</span><span className="ps-preview-info__value">{formatNumber(currentDocument.margin_top)}/{formatNumber(currentDocument.margin_right)}/{formatNumber(currentDocument.margin_bottom)}/{formatNumber(currentDocument.margin_left)} {currentDocument.unit}</span></div>
-                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">อัปเดต</span><span className="ps-preview-info__value">{formatTimestamp(savedSettings.updated_at)}</span></div>
-                                    </div>
+                                    {canPreviewSettings && (
+                                        <div className="ps-preview-info" style={{ marginTop: 14 }}>
+                                            <div className="ps-preview-info__row"><span className="ps-preview-info__label">เครื่องพิมพ์</span><span className="ps-preview-info__value">{printerProfileLabel[currentDocument.printer_profile]}</span></div>
+                                            <div className="ps-preview-info__row"><span className="ps-preview-info__label">ตัวอักษร/บรรทัด</span><span className="ps-preview-info__value">~{charsPerLine}</span></div>
+                                            <div className="ps-preview-info__row"><span className="ps-preview-info__label">ความหนาแน่น</span><span className="ps-preview-info__value">{densityLabel[currentDocument.density]}</span></div>
+                                            <div className="ps-preview-info__row"><span className="ps-preview-info__label">ขอบ</span><span className="ps-preview-info__value">{formatNumber(currentDocument.margin_top)}/{formatNumber(currentDocument.margin_right)}/{formatNumber(currentDocument.margin_bottom)}/{formatNumber(currentDocument.margin_left)} {currentDocument.unit}</span></div>
+                                            <div className="ps-preview-info__row"><span className="ps-preview-info__label">อัปเดต</span><span className="ps-preview-info__value">{formatTimestamp(savedSettings.updated_at)}</span></div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -874,6 +954,7 @@ export default function PrintSettingPage() {
                                     <Tag>{automationCount} เปิดอยู่</Tag>
                                 </div>
                                 <div className="ps-card__body--compact">
+                                    {!canEditAutomation && <Text type="secondary">Automation ถูกล็อกโดยนโยบายสิทธิ์</Text>}
                                     {automationItems.map((item) => (
                                         <div key={item.key} className="ps-auto-item">
                                             <div>
@@ -883,7 +964,7 @@ export default function PrintSettingPage() {
                                             <Switch
                                                 size="small"
                                                 checked={settings.automation[item.key]}
-                                                disabled={!canUpdateSettings}
+                                                disabled={!canEditAutomation}
                                                 onChange={(checked) => setSettings((prev) => ({
                                                     ...prev,
                                                     automation: { ...prev.automation, [item.key]: checked },
@@ -891,6 +972,30 @@ export default function PrintSettingPage() {
                                             />
                                         </div>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div className="ps-card">
+                                <div className="ps-card__header">
+                                    <h3 className="ps-card__title">นโยบายสิทธิ์ของบทบาทนี้</h3>
+                                    <Tag color="purple">{activeRoleBlueprint.roleName}</Tag>
+                                </div>
+                                <div className="ps-card__body--compact" style={{ display: 'grid', gap: 12 }}>
+                                    <Text type="secondary">{activeRoleBlueprint.summary}</Text>
+                                    <div>
+                                        <Text strong>ทำได้</Text>
+                                        <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+                                            {activeRoleBlueprint.allowed.map((item) => <Tag key={item} color="green">{item}</Tag>)}
+                                        </div>
+                                    </div>
+                                    {activeRoleBlueprint.denied.length > 0 && (
+                                        <div>
+                                            <Text strong>ทำไม่ได้</Text>
+                                            <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
+                                                {activeRoleBlueprint.denied.map((item) => <Tag key={item} color="red">{item}</Tag>)}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 
@@ -911,14 +1016,14 @@ export default function PrintSettingPage() {
                                                 options={[{ label: 'มม.', value: 'mm' }, { label: 'นิ้ว', value: 'in' }]}
                                                 value={settings.default_unit}
                                                 onChange={(value) => setSettings((prev) => ({ ...prev, default_unit: value }))}
-                                                disabled={!canUpdateSettings}
+                                                disabled={!canEditBranchDefaults}
                                             />
                                         </div>
                                         <div className="ps-branch-item">
                                             <span className="ps-branch-item__label">ภาษาและเวลา</span>
                                             <Input
                                                 value={settings.locale}
-                                                disabled={!canUpdateSettings}
+                                                disabled={!canEditBranchDefaults}
                                                 onChange={(event) => setSettings((prev) => ({ ...prev, locale: event.target.value }))}
                                                 placeholder="th-TH"
                                                 maxLength={20}
@@ -934,12 +1039,38 @@ export default function PrintSettingPage() {
                                                 <Switch
                                                     size="small"
                                                     checked={settings.allow_manual_override}
-                                                    disabled={!canUpdateSettings}
+                                                    disabled={!canEditOverridePolicy}
                                                     onChange={(checked) => setSettings((prev) => ({ ...prev, allow_manual_override: checked }))}
                                                 />
                                             </div>
+                                            {!canEditOverridePolicy && (
+                                                <Text type="secondary">Governance policy จุดนี้ปรับได้เฉพาะ Admin</Text>
+                                            )}
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+
+                            <div className="ps-card">
+                                <div className="ps-card__header">
+                                    <h3 className="ps-card__title">Capability Matrix</h3>
+                                </div>
+                                <div className="ps-card__body--compact" style={{ display: 'grid', gap: 10 }}>
+                                    {PRINT_SETTINGS_CAPABILITIES.map((item) => {
+                                        const allowed = can(item.resourceKey, item.action);
+                                        const meta = getPrintSettingsCapability(item.resourceKey);
+                                        return (
+                                            <div key={item.resourceKey} className="ps-auto-item">
+                                                <div>
+                                                    <div className="ps-auto-item__title">{item.title}</div>
+                                                    <div className="ps-auto-item__desc">{meta?.description}</div>
+                                                </div>
+                                                <Tag color={allowed ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
+                                                    {allowed ? 'Allowed' : 'Locked'}
+                                                </Tag>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -956,7 +1087,7 @@ export default function PrintSettingPage() {
                 }}>
                     ยกเลิกการแก้ไข
                 </Button>
-                <Button size="small" type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving} disabled={!canUpdateSettings}>
+                <Button size="small" type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving} disabled={!canSaveChanges}>
                     บันทึก
                 </Button>
             </div>

@@ -6,7 +6,7 @@ import {
     ShoppingOutlined,
     RocketOutlined,
 } from "@ant-design/icons";
-import { Grid, Skeleton, Typography } from "antd";
+import { Alert, Grid, Skeleton, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import PageContainer from "../../../../components/ui/page/PageContainer";
@@ -186,12 +186,15 @@ export default function POSPage() {
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const router = useRouter();
     const { currentShift, loading: shiftLoading } = useShift();
-    const { stats, isLoading: statsLoading } = useChannelStats();
+    const canViewChannels = can("orders.channels.feature", "view");
+    const canCreateOrder = can("orders.channel_create.feature", "create");
+    const canViewOrderSummary = can("orders.summary.feature", "view");
+    const { stats, isLoading: statsLoading } = useChannelStats(canViewOrderSummary);
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
 
     useEffect(() => {
-        if (authLoading || permissionLoading || !can("orders.page", "view")) {
+        if (authLoading || permissionLoading || !canViewChannels) {
             return;
         }
         [
@@ -204,7 +207,7 @@ export default function POSPage() {
             "/pos/list",
             "/pos/settings",
         ].forEach((path) => router.prefetch(path));
-    }, [authLoading, can, permissionLoading, router]);
+    }, [authLoading, canViewChannels, permissionLoading, router]);
 
     const channelCards: ChannelCardData[] = useMemo(
         () => [
@@ -242,7 +245,7 @@ export default function POSPage() {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
-    if (!can("orders.page", "view")) {
+    if (!canViewChannels) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
@@ -299,6 +302,15 @@ export default function POSPage() {
             `}</style>
 
             <PageContainer>
+                {!canCreateOrder ? (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Channel order creation is restricted"
+                        description="This role can still open channel workspaces, but starting new takeaway or delivery orders remains locked until create-order capability is granted."
+                    />
+                ) : null}
                 <div style={{ paddingTop: isMobile ? 4 : 12 }}>
                     {/* Page header */}
                     <div style={{ marginBottom: isMobile ? 20 : 28 }}>

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Space, Spin, Switch, Tag, Typography, message } from 'antd';
 import { AppstoreOutlined, DeleteOutlined, ExclamationCircleOutlined, SaveOutlined, TagsOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
@@ -14,6 +14,7 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/category/style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { useAuth } from '../../../../../../contexts/AuthContext';
+import { CATEGORY_CAPABILITIES, CATEGORY_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/category-capabilities';
 
 const { Title, Text } = Typography;
 
@@ -47,12 +48,34 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     const isEdit = mode === 'edit' && Boolean(id);
     const isValidMode = mode === 'add' || mode === 'edit';
 
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking } = useRoleGuard({
+        requiredPermission: { resourceKey: 'category.manager.feature', action: 'access' },
+        redirectUnauthorized: '/pos/category',
+        unauthorizedMessage: 'คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการหมวดหมู่',
+    });
     const { user } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreate = can('category.page', 'create');
-    const canUpdate = can('category.page', 'update');
-    const canDelete = can('category.page', 'delete');
+    const canOpenManager = can('category.manager.feature', 'access');
+    const canCreate = can('category.page', 'create') && can('category.create.feature', 'create') && canOpenManager;
+    const canRename = can('category.page', 'update') && can('category.edit.feature', 'update') && canOpenManager;
+    const canUpdateStatus = can('category.page', 'update') && can('category.status.feature', 'update') && canOpenManager;
+    const canDelete = can('category.page', 'delete') && can('category.delete.feature', 'delete') && canOpenManager;
+    const canSubmitAdd = canCreate;
+    const canSubmitEdit = canRename || canUpdateStatus;
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () =>
+            CATEGORY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            CATEGORY_CAPABILITIES.map((item) => ({
+                ...item,
+                enabled: can(item.resourceKey, item.action),
+            })),
+        [can]
+    );
 
     const title = useMemo(() => (isEdit ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่'), [isEdit]);
 
@@ -74,11 +97,11 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
             router.replace('/pos/category');
             return;
         }
-        if (mode === 'edit' && !canUpdate) {
+        if (mode === 'edit' && !canRename && !canUpdateStatus && !canDelete) {
             message.warning('คุณไม่มีสิทธิ์แก้ไขหมวดหมู่');
             router.replace('/pos/category');
         }
-    }, [canCreate, canUpdate, isAuthorized, isChecking, mode, permissionLoading, router]);
+    }, [canCreate, canDelete, canRename, canUpdateStatus, isAuthorized, isChecking, mode, permissionLoading, router]);
 
     const fetchCategory = useCallback(async () => {
         if (!id) return;
@@ -110,6 +133,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     }, [fetchCategory, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
+        if (!(isEdit ? canRename : canCreate)) return false;
         const value = rawValue.trim();
         if (!value) return false;
         if (isEdit && originalCategory?.display_name?.toLowerCase() === value.toLowerCase()) {
@@ -124,10 +148,10 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         } catch {
             return false;
         }
-    }, [id, isEdit, originalCategory]);
+    }, [canCreate, canRename, id, isEdit, originalCategory]);
 
     const handleSubmit = async (values: CategoryFormValues) => {
-        if (isEdit ? !canUpdate : !canCreate) {
+        if (isEdit ? !canSubmitEdit : !canSubmitAdd) {
             message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขหมวดหมู่' : 'คุณไม่มีสิทธิ์เพิ่มหมวดหมู่');
             return;
         }
@@ -135,10 +159,24 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         setSubmitting(true);
         try {
             const token = csrfToken || await getCsrfTokenCached();
-            const payload = {
-                display_name: values.display_name.trim(),
-                is_active: values.is_active,
-            };
+            const payload: Partial<CategoryFormValues> = {};
+
+            if (!isEdit) {
+                payload.display_name = values.display_name.trim();
+                payload.is_active = values.is_active;
+            } else {
+                if (canRename) {
+                    payload.display_name = values.display_name.trim();
+                }
+                if (canUpdateStatus) {
+                    payload.is_active = values.is_active;
+                }
+            }
+
+            if (isEdit && Object.keys(payload).length === 0) {
+                message.warning('ไม่มี field ที่บัญชีนี้มีสิทธิ์บันทึก');
+                return;
+            }
 
             const response = await fetch(isEdit ? `/api/pos/category/update/${id}` : '/api/pos/category/create', {
                 method: isEdit ? 'PUT' : 'POST',
@@ -212,6 +250,27 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
+                    <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+                        <Alert
+                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                            showIcon
+                            message={selectedRoleBlueprint?.title || 'Category manager permissions'}
+                            description={
+                                selectedRoleBlueprint
+                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                    : 'ระบบจะเปิดเฉพาะ field และ action ที่บัญชีนี้มีสิทธิ์'
+                            }
+                        />
+                        {isEdit && !canSubmitEdit ? (
+                            <Alert
+                                type="warning"
+                                showIcon
+                                message="หน้า edit นี้เปิดได้เฉพาะบาง action"
+                                description={canDelete ? 'บัญชีนี้ลบหมวดหมู่ได้ แต่ไม่สามารถแก้ชื่อหรือสถานะได้' : 'บัญชีนี้ไม่มี field สำหรับบันทึกในหน้านี้'}
+                            />
+                        ) : null}
+                    </div>
+
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
                             <Spin size="large" />
@@ -252,7 +311,12 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                                 },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="เครื่องดื่ม, อาหาร, ของหวาน..." />
+                                            <Input
+                                                size="large"
+                                                maxLength={100}
+                                                placeholder="เครื่องดื่ม, อาหาร, ของหวาน..."
+                                                disabled={isEdit ? !canRename : !canCreate}
+                                            />
                                         </Form.Item>
 
                                         <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>
@@ -262,14 +326,14 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                                     <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดเพื่อให้แสดงบนหน้า POS</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                    <Switch checked={isActive} />
+                                                    <Switch checked={isActive} disabled={isEdit ? !canUpdateStatus : !canCreate} />
                                                 </Form.Item>
                                             </div>
                                         </div>
 
                                         <div style={{ display: 'flex', gap: 12 }}>
                                             <Button size="large" onClick={() => router.replace('/pos/category')} style={{ flex: 1 }}>ยกเลิก</Button>
-                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }}>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} disabled={isEdit ? !canSubmitEdit : !canSubmitAdd} style={{ flex: 2 }}>
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>
@@ -290,6 +354,23 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                             showIcon
                                             message={isActive ? 'หมวดหมู่นี้พร้อมใช้งาน' : 'หมวดหมู่นี้ถูกปิดใช้งาน'}
                                         />
+                                    </Card>
+
+                                    <Card style={{ borderRadius: 16 }}>
+                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                            <Text strong>Category Governance</Text>
+                                            <Text type="secondary">Field และ action ในหน้านี้จะเปิดเฉพาะ capability ที่ role ปัจจุบันได้รับเท่านั้น</Text>
+                                            <Space wrap>
+                                                {capabilityMatrix.map((item) => (
+                                                    <Tag
+                                                        key={item.resourceKey}
+                                                        color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}
+                                                    >
+                                                        {item.title}
+                                                    </Tag>
+                                                ))}
+                                            </Space>
+                                        </Space>
                                     </Card>
 
                                     {isEdit ? (

@@ -1,18 +1,18 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
+import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
-    TableOutlined,
-    PlusOutlined,
-    ReloadOutlined,
-    QrcodeOutlined,
-    EditOutlined,
-    DeleteOutlined,
     CheckCircleFilled,
+    DeleteOutlined,
+    EditOutlined,
+    PlusOutlined,
+    QrcodeOutlined,
+    ReloadOutlined,
+    TableOutlined,
 } from '@ant-design/icons';
-import { Tables, TableStatus } from '../../../../types/api/pos/tables';
 import { useRouter } from 'next/navigation';
+import { Tables, TableStatus } from '../../../../types/api/pos/tables';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
@@ -36,6 +36,7 @@ import ListPagination from '../../../../components/ui/pagination/ListPagination'
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { TABLES_CAPABILITIES, TABLES_ROLE_BLUEPRINT } from '../../../../lib/rbac/tables-capabilities';
 
 const { Text } = Typography;
 
@@ -46,12 +47,13 @@ type TablesCachePayload = {
     total: number;
 };
 
-const TABLES_CACHE_KEY = 'pos:tables:list:default-v2';
+const TABLES_CACHE_KEY = 'pos:tables:list:default-v3';
 const TABLES_CACHE_TTL_MS = 60 * 1000;
 
 interface TableCardProps {
     table: Tables;
-    canUpdate: boolean;
+    canOpenManager: boolean;
+    canToggleStatus: boolean;
     canDelete: boolean;
     onEdit: (table: Tables) => void;
     onDelete: (table: Tables) => void;
@@ -73,16 +75,17 @@ const getTableStatusLabel = (status: TableStatus) => {
     return status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง';
 };
 
-const TableCard = ({
+function TableCard({
     table,
-    canUpdate,
+    canOpenManager,
+    canToggleStatus,
     canDelete,
     onEdit,
     onDelete,
     onToggleActive,
     updatingStatusId,
     deletingId,
-}: TableCardProps) => {
+}: TableCardProps) {
     const isAvailable = table.status === TableStatus.Available;
 
     return (
@@ -91,10 +94,10 @@ const TableCard = ({
             style={{
                 ...pageStyles.tableCard(table.is_active),
                 borderRadius: 18,
-                cursor: canUpdate ? 'pointer' : 'default',
+                cursor: canOpenManager ? 'pointer' : 'default',
             }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenManager) return;
                 onEdit(table);
             }}
         >
@@ -126,14 +129,7 @@ const TableCard = ({
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                        <Text
-                            strong
-                            style={{
-                                fontSize: 16,
-                                color: '#0f172a',
-                            }}
-                            ellipsis={{ tooltip: table.table_name }}
-                        >
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: table.table_name }}>
                             {table.table_name}
                         </Text>
                         {table.is_active ? <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} /> : null}
@@ -154,19 +150,19 @@ const TableCard = ({
                         size="small"
                         checked={table.is_active}
                         loading={updatingStatusId === table.id}
-                        disabled={!canUpdate || deletingId === table.id}
+                        disabled={!canToggleStatus || deletingId === table.id}
                         onClick={(checked, event) => {
-                            if (!canUpdate) return;
                             event?.stopPropagation();
+                            if (!canToggleStatus) return;
                             onToggleActive(table, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenManager ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onEdit(table);
                             }}
                             style={{
@@ -184,8 +180,8 @@ const TableCard = ({
                             danger
                             loading={deletingId === table.id}
                             icon={deletingId === table.id ? undefined : <DeleteOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onDelete(table);
                             }}
                             style={{
@@ -200,7 +196,7 @@ const TableCard = ({
             </div>
         </div>
     );
-};
+}
 
 export default function TablesPage() {
     const router = useRouter();
@@ -241,10 +237,38 @@ export default function TablesPage() {
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-
-    const canCreateTables = can('tables.page', 'create');
-    const canUpdateTables = can('tables.page', 'update');
-    const canDeleteTables = can('tables.page', 'delete');
+    const canViewTables = can('tables.page', 'view');
+    const canSearchTables = can('tables.search.feature', 'view');
+    const canFilterTables = can('tables.filter.feature', 'view');
+    const canOpenTablesManager = can('tables.manager.feature', 'access');
+    const canCreateTable =
+        can('tables.page', 'create') &&
+        can('tables.create.feature', 'create') &&
+        canOpenTablesManager;
+    const canEditTableDetails =
+        can('tables.page', 'update') &&
+        can('tables.edit.feature', 'update') &&
+        canOpenTablesManager;
+    const canToggleTableStatus =
+        can('tables.page', 'update') &&
+        can('tables.status.feature', 'update') &&
+        canOpenTablesManager;
+    const canDeleteTable =
+        can('tables.page', 'delete') &&
+        can('tables.delete.feature', 'delete') &&
+        canOpenTablesManager;
+    const canOpenTablesEditWorkspace =
+        canOpenTablesManager && (canEditTableDetails || canToggleTableStatus || canDeleteTable);
+    const canOpenQrWorkspace = can('qr_code.page', 'view');
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => TABLES_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () => TABLES_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -257,13 +281,11 @@ export default function TablesPage() {
     );
 
     useEffect(() => {
-        getCsrfTokenCached();
+        void getCsrfTokenCached();
     }, []);
 
-    useEffect(() => {
-        return () => {
-            requestRef.current?.abort();
-        };
+    useEffect(() => () => {
+        requestRef.current?.abort();
     }, []);
 
     useEffect(() => {
@@ -289,6 +311,22 @@ export default function TablesPage() {
         });
     }, [isDefaultListView, loading, tables, total]);
 
+    useEffect(() => {
+        if (!canSearchTables && searchText) setSearchText('');
+    }, [canSearchTables, searchText, setSearchText]);
+
+    useEffect(() => {
+        if (!canFilterTables && filters.status !== 'all') updateFilter('status', 'all');
+    }, [canFilterTables, filters.status, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterTables && filters.table_state !== 'all') updateFilter('table_state', 'all');
+    }, [canFilterTables, filters.table_state, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterTables && createdSort !== DEFAULT_CREATED_SORT) setCreatedSort(DEFAULT_CREATED_SORT);
+    }, [canFilterTables, createdSort, setCreatedSort]);
+
     const fetchTables = useCallback(
         async (options?: { background?: boolean }) => {
             if (!isAuthorized) return;
@@ -298,15 +336,21 @@ export default function TablesPage() {
             requestRef.current = controller;
             const background = options?.background === true;
 
-            if (background) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
+            if (background) setRefreshing(true);
+            else setLoading(true);
             setError(null);
 
             try {
                 const params = getQueryParams();
+                if (!canSearchTables) {
+                    params.delete('q');
+                }
+                if (!canFilterTables) {
+                    params.delete('status');
+                    params.delete('table_state');
+                    params.delete('sort_created');
+                }
+
                 const response = await fetch(`/api/pos/tables?${params.toString()}`, {
                     cache: 'no-store',
                     signal: controller.signal,
@@ -335,7 +379,7 @@ export default function TablesPage() {
                 }
             }
         },
-        [getQueryParams, isAuthorized, setTotal]
+        [canFilterTables, canSearchTables, getQueryParams, isAuthorized, setTotal]
     );
 
     useEffect(() => {
@@ -359,7 +403,7 @@ export default function TablesPage() {
     });
 
     const handleAdd = () => {
-        if (!canCreateTables) {
+        if (!canCreateTable) {
             message.error('คุณไม่มีสิทธิ์เพิ่มโต๊ะ');
             return;
         }
@@ -368,13 +412,17 @@ export default function TablesPage() {
     };
 
     const handleOpenQrCodes = () => {
+        if (!canOpenQrWorkspace) {
+            message.error('คุณไม่มีสิทธิ์เปิดหน้าจัดการ QR โต๊ะ');
+            return;
+        }
         showLoading('กำลังเปิดหน้า QR โต๊ะ...');
         router.push('/pos/qr-code');
     };
 
     const handleEdit = (table: Tables) => {
-        if (!canUpdateTables) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขโต๊ะ');
+        if (!canOpenTablesEditWorkspace) {
+            message.error('คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการโต๊ะ');
             return;
         }
         showLoading('กำลังเปิดหน้าแก้ไขโต๊ะ...');
@@ -382,7 +430,7 @@ export default function TablesPage() {
     };
 
     const handleDelete = (table: Tables) => {
-        if (!canDeleteTables) {
+        if (!canDeleteTable) {
             message.error('คุณไม่มีสิทธิ์ลบโต๊ะ');
             return;
         }
@@ -415,11 +463,8 @@ export default function TablesPage() {
                     setTables((prev) => prev.filter((item) => item.id !== table.id));
                     setTotal((prev) => Math.max(prev - 1, 0));
 
-                    if (shouldMoveToPreviousPage) {
-                        setPage(page - 1);
-                    } else {
-                        void fetchTables({ background: true });
-                    }
+                    if (shouldMoveToPreviousPage) setPage(page - 1);
+                    else void fetchTables({ background: true });
 
                     message.success(`ลบโต๊ะ "${table.table_name}" สำเร็จ`);
                 } catch (deleteError) {
@@ -432,8 +477,8 @@ export default function TablesPage() {
     };
 
     const handleToggleActive = async (table: Tables, next: boolean) => {
-        if (!canUpdateTables) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขโต๊ะ');
+        if (!canToggleTableStatus) {
+            message.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะการใช้งานโต๊ะ');
             return;
         }
 
@@ -451,14 +496,14 @@ export default function TablesPage() {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะโต๊ะได้');
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะการใช้งานโต๊ะได้');
             }
 
             const updated = await response.json();
             setTables((prev) => prev.map((item) => (item.id === table.id ? updated : item)));
             message.success(next ? 'เปิดใช้งานโต๊ะแล้ว' : 'ปิดใช้งานโต๊ะแล้ว');
         } catch (toggleError) {
-            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะโต๊ะได้');
+            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะการใช้งานโต๊ะได้');
         } finally {
             setUpdatingStatusId(null);
         }
@@ -468,8 +513,8 @@ export default function TablesPage() {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
-    if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
+    if (!isAuthorized || !canViewTables) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     if (permissionLoading) {
@@ -485,12 +530,11 @@ export default function TablesPage() {
                 icon={<TableOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchTables({ background: tables.length > 0 })}>
-                        </Button>
-                        <Button icon={<QrcodeOutlined />} onClick={handleOpenQrCodes}>
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchTables({ background: tables.length > 0 })} />
+                        <Button icon={<QrcodeOutlined />} onClick={handleOpenQrCodes} disabled={!canOpenQrWorkspace}>
                             QR โต๊ะ
                         </Button>
-                        {canCreateTables ? (
+                        {canCreateTable ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มโต๊ะ
                             </Button>
@@ -501,12 +545,59 @@ export default function TablesPage() {
 
             <PageContainer>
                 <PageStack>
-                    <SearchBar>
-                        <SearchInput
-                            placeholder="ค้นหา"
-                            value={searchText}
-                            onChange={setSearchText}
+                    <Alert
+                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                        showIcon
+                        message={selectedRoleBlueprint?.title || 'Tables permissions'}
+                        description={
+                            selectedRoleBlueprint
+                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                : 'หน้าจัดการโต๊ะจะเปิดเฉพาะส่วนที่ role นี้ได้รับสิทธิ์จริง'
+                        }
+                    />
+
+                    {(!canSearchTables || !canFilterTables || !canOpenQrWorkspace || !canOpenTablesManager) ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="Some table controls are restricted by policy"
+                            description="ระบบจะซ่อนหรือปิดการใช้งาน search, filter, manager workspace, QR workspace และ action ต่าง ๆ ตาม capability ของ role นี้"
                         />
+                    ) : null}
+
+                    <PageSection
+                        title="Tables Capability Matrix"
+                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
+                    >
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 18,
+                                        padding: 16,
+                                        border: item.enabled ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
+                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #eff6ff 100%)' : '#ffffff',
+                                        boxShadow: item.enabled ? '0 14px 32px rgba(37, 99, 235, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
+                                    }}
+                                >
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                        <Space wrap>
+                                            <Tag color={item.enabled ? 'blue' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
+                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'cyan'}>
+                                                {item.securityLevel}
+                                            </Tag>
+                                        </Space>
+                                        <Text strong>{item.title}</Text>
+                                        <Text type="secondary">{item.description}</Text>
+                                    </Space>
+                                </div>
+                            ))}
+                        </div>
+                    </PageSection>
+
+                    <SearchBar>
+                        <SearchInput placeholder="ค้นหาโต๊ะ" value={searchText} onChange={setSearchText} disabled={!canSearchTables} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
@@ -519,6 +610,7 @@ export default function TablesPage() {
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 132 }}
+                                    disabled={!canFilterTables}
                                 />
                                 <ModalSelector<TableStateFilter>
                                     title="เลือกสถานะโต๊ะ"
@@ -530,6 +622,7 @@ export default function TablesPage() {
                                     value={filters.table_state}
                                     onChange={(value) => updateFilter('table_state', value)}
                                     style={{ minWidth: 132 }}
+                                    disabled={!canFilterTables}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เลือกรูปแบบการเรียงลำดับ"
@@ -540,6 +633,7 @@ export default function TablesPage() {
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     style={{ minWidth: 132 }}
+                                    disabled={!canFilterTables}
                                 />
                             </Space>
                         </Space>
@@ -569,8 +663,9 @@ export default function TablesPage() {
                                     <TableCard
                                         key={table.id}
                                         table={table}
-                                        canUpdate={canUpdateTables}
-                                        canDelete={canDeleteTables}
+                                        canOpenManager={canOpenTablesEditWorkspace}
+                                        canToggleStatus={canToggleTableStatus}
+                                        canDelete={canDeleteTable}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}

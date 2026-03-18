@@ -23,6 +23,8 @@ export default function POSOrderComposerGuard({
     const router = useRouter();
     const { user } = useAuth();
     const { can, loading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canViewChannels = can("orders.channels.feature", "view");
+    const canCreateOrder = can("orders.channel_create.feature", "create");
 
     if (!user) return null;
 
@@ -51,11 +53,11 @@ export default function POSOrderComposerGuard({
                     <Layout.Content style={{ background: "transparent" }}>
                         <Result
                             status="warning"
-                            title="ข้อมูลไม่ครบ"
+                            title="Missing input"
                             subTitle={invalidMessage}
                             extra={
                                 <Button type="primary" onClick={() => router.push(backPath)}>
-                                    กลับ
+                                    Back
                                 </Button>
                             }
                         />
@@ -65,7 +67,7 @@ export default function POSOrderComposerGuard({
         );
     }
 
-    if (!can("orders.page", "create")) {
+    if (!canViewChannels) {
         return (
             <PageContainer maxWidth={99999} style={{ padding: 0 }}>
                 <Layout style={{ background: "transparent" }}>
@@ -73,10 +75,31 @@ export default function POSOrderComposerGuard({
                         <Result
                             status="403"
                             title="403"
-                            subTitle="คุณไม่มีสิทธิ์สร้างออเดอร์"
+                            subTitle="You do not have access to this sales-channel workspace."
                             extra={
                                 <Button type="primary" onClick={() => router.push(backPath)}>
-                                    กลับ
+                                    Back
+                                </Button>
+                            }
+                        />
+                    </Layout.Content>
+                </Layout>
+            </PageContainer>
+        );
+    }
+
+    if (!canCreateOrder) {
+        return (
+            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
+                <Layout style={{ background: "transparent" }}>
+                    <Layout.Content style={{ background: "transparent" }}>
+                        <Result
+                            status="403"
+                            title="403"
+                            subTitle="You do not have permission to create orders from this workspace."
+                            extra={
+                                <Button type="primary" onClick={() => router.push(backPath)}>
+                                    Back
                                 </Button>
                             }
                         />

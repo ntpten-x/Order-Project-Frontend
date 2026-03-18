@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Tag, Typography, message } from 'antd';
-import { AppstoreOutlined, CheckCircleOutlined, DeleteOutlined, DownOutlined, SaveOutlined } from '@ant-design/icons';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Space, Spin, Switch, Tag, Typography, message } from 'antd';
+import { AppstoreOutlined, CheckCircleOutlined, DeleteOutlined, DownOutlined, ExclamationCircleOutlined, SaveOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
@@ -17,7 +17,8 @@ import { Category } from '../../../../../../types/api/pos/category';
 import { Topping } from '../../../../../../types/api/pos/topping';
 import { ToppingGroup } from '../../../../../../types/api/pos/toppingGroup';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
-import { pageStyles, ManagePageStyles, ToppingPreview, ActionButtons } from './style';
+import { pageStyles, ManagePageStyles, ToppingPreview } from './style';
+import { TOPPING_CAPABILITIES, TOPPING_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/topping-capabilities';
 
 const { Title, Text } = Typography;
 
@@ -67,13 +68,19 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const isEdit = mode === 'edit' && Boolean(id);
     const isValidMode = mode === 'add' || mode === 'edit';
 
-    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard({
+        unauthorizedMessage: 'คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการท็อปปิ้ง',
+    });
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreate = can('topping.page', 'create');
-    const canUpdate = can('topping.page', 'update');
-    const canDelete = can('topping.page', 'delete');
+    const canOpenToppingManager = can('topping.manager.feature', 'access');
+    const canCreateTopping = can('topping.page', 'create') && can('topping.create.feature', 'create') && canOpenToppingManager;
+    const canEditToppingCatalog = can('topping.page', 'update') && can('topping.catalog.feature', 'update') && canOpenToppingManager;
+    const canEditToppingPricing = can('topping.page', 'update') && can('topping.pricing.feature', 'update') && canOpenToppingManager;
+    const canUpdateToppingStatus = can('topping.page', 'update') && can('topping.status.feature', 'update') && canOpenToppingManager;
+    const canDeleteTopping = can('topping.page', 'delete') && can('topping.delete.feature', 'delete') && canOpenToppingManager;
+    const canSubmitAdd = canCreateTopping;
+    const canSubmitEdit = canEditToppingCatalog || canEditToppingPricing || canUpdateToppingStatus;
 
-    // Sync form values for preview using useWatch
     const displayName = Form.useWatch('display_name', form);
     const price = Form.useWatch('price', form);
     const priceDelivery = Form.useWatch('price_delivery', form);
@@ -84,11 +91,19 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const watchedToppingGroupIds = Form.useWatch('topping_group_ids', form);
     const toppingGroupIds = useMemo(() => watchedToppingGroupIds ?? [], [watchedToppingGroupIds]);
 
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => TOPPING_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () => TOPPING_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
     const selectedCategories = useMemo(
         () => categories.filter((category) => categoryIds.includes(category.id)),
         [categories, categoryIds]
     );
-
     const hasSelectableCategories = useMemo(
         () => categories.some((category) => category.is_active) || selectedCategories.length > 0,
         [categories, selectedCategories.length]
@@ -97,6 +112,9 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
         () => toppingGroups.filter((group) => group.is_active || toppingGroupIds.includes(group.id)),
         [toppingGroupIds, toppingGroups]
     );
+    const isCatalogReadOnly = isEdit && !canEditToppingCatalog;
+    const isPricingReadOnly = isEdit && !canEditToppingPricing;
+    const isStatusReadOnly = isEdit && !canUpdateToppingStatus;
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -108,19 +126,6 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     useEffect(() => {
         void getCsrfTokenCached().then(setCsrfToken);
     }, []);
-
-    useEffect(() => {
-        if (isChecking || permissionLoading || !isAuthorized) return;
-        if (mode === 'add' && !canCreate) {
-            message.warning('คุณไม่มีสิทธิ์เพิ่มท็อปปิ้ง');
-            router.replace('/pos/topping');
-            return;
-        }
-        if (mode === 'edit' && !canUpdate) {
-            message.warning('คุณไม่มีสิทธิ์แก้ไขท็อปปิ้ง');
-            router.replace('/pos/topping');
-        }
-    }, [canCreate, canUpdate, isAuthorized, isChecking, mode, permissionLoading, router]);
 
     const fetchCategories = useCallback(async () => {
         const response = await fetch('/api/pos/category', { cache: 'no-store' });
@@ -172,6 +177,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     }, [fetchCategories, fetchTopping, fetchToppingGroups, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
+        if (!(canCreateTopping || canEditToppingCatalog)) return false;
         const value = rawValue.trim();
         if (!value) return false;
         if (isEdit && originalTopping?.display_name?.toLowerCase() === value.toLowerCase()) {
@@ -185,27 +191,56 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
         } catch {
             return false;
         }
-    }, [id, isEdit, originalTopping]);
+    }, [canCreateTopping, canEditToppingCatalog, id, isEdit, originalTopping]);
 
     const handleSubmit = async (values: ToppingFormValues) => {
-        if (isEdit ? !canUpdate : !canCreate) {
-            message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขท็อปปิ้ง' : 'คุณไม่มีสิทธิ์เพิ่มท็อปปิ้ง');
+        if (isEdit ? !canSubmitEdit : !canSubmitAdd) {
+            message.warning(isEdit ? 'คุณไม่มีสิทธิ์บันทึกการแก้ไขท็อปปิ้ง' : 'คุณไม่มีสิทธิ์เพิ่มท็อปปิ้ง');
             return;
         }
+
         setSubmitting(true);
         try {
             const token = csrfToken || await getCsrfTokenCached();
-            const payload = {
-                display_name: values.display_name.trim(),
-                price: Number(values.price || 0),
-                price_delivery: values.price_delivery === undefined || values.price_delivery === null
-                    ? Number(values.price || 0)
-                    : Number(values.price_delivery),
-                img: normalizeImageSource(values.img) || null,
-                category_ids: values.category_ids,
-                topping_group_ids: values.topping_group_ids || [],
-                is_active: values.is_active,
-            };
+            const payload: Partial<ToppingFormValues> = !isEdit
+                ? {
+                    display_name: values.display_name.trim(),
+                    price: Number(values.price || 0),
+                    price_delivery:
+                        values.price_delivery === undefined || values.price_delivery === null
+                            ? Number(values.price || 0)
+                            : Number(values.price_delivery),
+                    img: normalizeImageSource(values.img) || '',
+                    category_ids: values.category_ids,
+                    topping_group_ids: values.topping_group_ids || [],
+                    is_active: values.is_active,
+                }
+                : {
+                    ...(canEditToppingCatalog
+                        ? {
+                            display_name: values.display_name.trim(),
+                            img: normalizeImageSource(values.img) || '',
+                            category_ids: values.category_ids,
+                            topping_group_ids: values.topping_group_ids || [],
+                        }
+                        : {}),
+                    ...(canEditToppingPricing
+                        ? {
+                            price: Number(values.price || 0),
+                            price_delivery:
+                                values.price_delivery === undefined || values.price_delivery === null
+                                    ? Number(values.price || 0)
+                                    : Number(values.price_delivery),
+                        }
+                        : {}),
+                    ...(canUpdateToppingStatus ? { is_active: values.is_active } : {}),
+                };
+
+            if (isEdit && Object.keys(payload).length === 0) {
+                message.warning('ไม่มี field ที่บัญชีนี้มีสิทธิ์บันทึก');
+                return;
+            }
+
             const response = await fetch(isEdit ? `/api/pos/topping/update/${id}` : '/api/pos/topping/create', {
                 method: isEdit ? 'PUT' : 'POST',
                 headers: {
@@ -218,6 +253,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถบันทึกท็อปปิ้งได้');
             }
+
             message.success(isEdit ? 'อัปเดตท็อปปิ้งสำเร็จ' : 'สร้างท็อปปิ้งสำเร็จ');
             router.replace('/pos/topping');
         } catch (error) {
@@ -229,7 +265,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     };
 
     const handleDelete = () => {
-        if (!id || !canDelete) return;
+        if (!id || !canDeleteTopping) return;
         Modal.confirm({
             title: 'ยืนยันการลบท็อปปิ้ง',
             content: `คุณต้องการลบท็อปปิ้ง "${displayName || '-'}" หรือไม่?`,
@@ -261,14 +297,17 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
 
     if (isChecking || permissionLoading) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    if (!canOpenToppingManager || (isEdit ? (!canSubmitEdit && !canDeleteTopping) : !canSubmitAdd)) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
-            <UIPageHeader 
+            <UIPageHeader
                 title={isEdit ? 'แก้ไขข้อมูลท็อปปิ้ง' : 'เพิ่มท็อปปิ้งใหม่'}
-                onBack={() => router.replace('/pos/topping')} 
-                actions={isEdit && canDelete ? (
+                onBack={() => router.replace('/pos/topping')}
+                actions={isEdit && canDeleteTopping ? (
                     <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
                         ลบ
                     </Button>
@@ -277,6 +316,27 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
+                    <Space direction="vertical" size={16} style={{ width: '100%', marginBottom: 16 }}>
+                        <Alert
+                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                            showIcon
+                            message={selectedRoleBlueprint?.title || 'Topping governance'}
+                            description={
+                                selectedRoleBlueprint
+                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                    : 'เปิดเฉพาะ field และ action ที่ role นี้มี capability จริง'
+                            }
+                        />
+                        {(!canEditToppingCatalog || !canEditToppingPricing || !canUpdateToppingStatus) ? (
+                            <Alert
+                                type="warning"
+                                showIcon
+                                message="Some topping manager controls are restricted by policy"
+                                description="field catalog, pricing และ switch สถานะจะถูกปิดตาม capability ของ role นี้"
+                            />
+                        ) : null}
+                    </Space>
+
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
                             <Spin size="large" />
@@ -310,38 +370,38 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
                                                     validator: async (_, value: string) => {
-                                                        if (!value?.trim()) return;
+                                                        if (!value?.trim() || isCatalogReadOnly) return;
                                                         if (await checkNameConflict(value)) throw new Error('ชื่อนี้ถูกใช้งานแล้ว');
                                                     },
                                                 },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="ชีส, ไข่มุก, วิปครีม..." />
+                                            <Input size="large" maxLength={100} placeholder="ชีส, ไข่มุก, วิปครีม..." disabled={isCatalogReadOnly} />
                                         </Form.Item>
 
                                         <Row gutter={16}>
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="price"
-                                                    label="ราคา"
+                                                    label="ราคาหน้าร้าน"
                                                     rules={[
-                                                        { required: true, message: 'กรุณากรอกราคาขาย' },
+                                                        { required: true, message: 'กรุณากรอกราคา' },
                                                         {
                                                             validator: async (_, value) => {
-                                                                if (!value && value !== 0) return;
                                                                 const num = Number(value);
                                                                 if (Number.isNaN(num) || num < 0) throw new Error('ราคาต้องมากกว่าหรือเท่ากับ 0');
-                                                            }
-                                                        }
+                                                            },
+                                                        },
                                                     ]}
                                                 >
                                                     <Input
                                                         size="large"
                                                         inputMode="numeric"
                                                         placeholder="0"
+                                                        disabled={isPricingReadOnly}
                                                         style={{ width: '100%', borderRadius: 12 }}
-                                                        onChange={(e) => {
-                                                            const normalized = normalizeDigits(e.target.value);
+                                                        onChange={(event) => {
+                                                            const normalized = normalizeDigits(event.target.value);
                                                             form.setFieldValue('price', normalized);
                                                         }}
                                                     />
@@ -350,24 +410,25 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="price_delivery"
-                                                    label="ราคาเดลิเวอรี"
+                                                    label="ราคาเดลิเวอรี่"
                                                     rules={[
                                                         {
                                                             validator: async (_, value) => {
                                                                 if (!value && value !== 0) return;
                                                                 const num = Number(value);
                                                                 if (Number.isNaN(num) || num < 0) throw new Error('ราคาต้องมากกว่าหรือเท่ากับ 0');
-                                                            }
-                                                        }
+                                                            },
+                                                        },
                                                     ]}
                                                 >
                                                     <Input
                                                         size="large"
                                                         inputMode="numeric"
                                                         placeholder="0"
+                                                        disabled={isPricingReadOnly}
                                                         style={{ width: '100%', borderRadius: 12 }}
-                                                        onChange={(e) => {
-                                                            const normalized = normalizeDigits(e.target.value);
+                                                        onChange={(event) => {
+                                                            const normalized = normalizeDigits(event.target.value);
                                                             form.setFieldValue('price_delivery', normalized);
                                                         }}
                                                     />
@@ -381,7 +442,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                             rules={[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
-                                                        if (!value?.trim()) return;
+                                                        if (!value?.trim() || isCatalogReadOnly) return;
                                                         if (!isSupportedImageSource(normalizeImageSource(value))) {
                                                             throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
                                                         }
@@ -389,7 +450,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                 },
                                             ]}
                                         >
-                                            <Input size="large" placeholder="https://example.com/topping.jpg" />
+                                            <Input size="large" placeholder="https://example.com/topping.jpg" disabled={isCatalogReadOnly} />
                                         </Form.Item>
 
                                         <Form.Item
@@ -399,6 +460,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         >
                                             <div
                                                 onClick={() => {
+                                                    if (isCatalogReadOnly) return;
                                                     setTempCategoryIds(categoryIds);
                                                     setIsCategoryModalVisible(true);
                                                 }}
@@ -406,19 +468,20 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                     padding: '10px 16px',
                                                     borderRadius: 12,
                                                     border: '2px solid #e2e8f0',
-                                                    cursor: 'pointer',
+                                                    cursor: isCatalogReadOnly ? 'not-allowed' : 'pointer',
                                                     minHeight: 46,
                                                     display: 'flex',
                                                     justifyContent: 'space-between',
                                                     alignItems: 'center',
                                                     background: 'white',
+                                                    opacity: isCatalogReadOnly ? 0.6 : 1,
                                                 }}
                                             >
                                                 <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: 1 }}>
                                                     {selectedCategories.length > 0 ? (
-                                                        selectedCategories.map((cat) => (
+                                                        selectedCategories.map((category) => (
                                                             <Tag
-                                                                key={cat.id}
+                                                                key={category.id}
                                                                 style={{
                                                                     borderRadius: 6,
                                                                     margin: 0,
@@ -427,7 +490,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                                     border: 'none',
                                                                 }}
                                                             >
-                                                                {cat.display_name}
+                                                                {category.display_name}
                                                             </Tag>
                                                         ))
                                                     ) : (
@@ -441,13 +504,14 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         <Form.Item
                                             name="topping_group_ids"
                                             label="กลุ่มท็อปปิ้งที่สังกัด"
-                                            extra="เลือกกลุ่มที่ท็อปปิ้งนี้สามารถแสดงได้ร่วมกับสินค้า"
+                                            extra="เลือกกลุ่มที่ท็อปปิ้งนี้สามารถแสดงร่วมกับสินค้าได้"
                                         >
                                             <ModalSelector<string>
                                                 title="เลือกกลุ่มท็อปปิ้ง"
                                                 value={toppingGroupIds}
                                                 multiple
                                                 showSearch
+                                                disabled={isCatalogReadOnly}
                                                 options={availableToppingGroups.map((group) => ({
                                                     label: group.display_name,
                                                     value: group.id,
@@ -468,16 +532,39 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                     </Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                    <Switch />
+                                                    <Switch disabled={isStatusReadOnly} />
                                                 </Form.Item>
                                             </div>
                                         </div>
 
-                                        <ActionButtons 
-                                            isEdit={isEdit} 
-                                            loading={submitting} 
-                                            onCancel={() => router.replace('/pos/topping')} 
-                                        />
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <Button
+                                                size="large"
+                                                onClick={() => router.replace('/pos/topping')}
+                                                style={{ flex: 1, borderRadius: 14, height: 48 }}
+                                            >
+                                                ยกเลิก
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                size="large"
+                                                loading={submitting}
+                                                disabled={isEdit ? !canSubmitEdit : !canSubmitAdd}
+                                                icon={<SaveOutlined />}
+                                                style={{
+                                                    flex: 2,
+                                                    borderRadius: 14,
+                                                    height: 48,
+                                                    background: 'linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)',
+                                                    border: 'none',
+                                                    fontWeight: 600,
+                                                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.4)',
+                                                }}
+                                            >
+                                                บันทึกข้อมูล
+                                            </Button>
+                                        </div>
                                     </Form>
                                 </Card>
                             </Col>
@@ -495,7 +582,29 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         />
                                     </Card>
 
-                                    {isEdit && (
+                                    <Card bordered={false} style={{ borderRadius: 16 }}>
+                                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                            <Space>
+                                                <ExclamationCircleOutlined style={{ color: '#2563eb' }} />
+                                                <Text strong>Topping Governance</Text>
+                                            </Space>
+                                            <Text type="secondary">
+                                                Capability ของ pos/topping ถูกแยกออกจาก page access เพื่อควบคุม search, filter, manager workspace, create, catalog, pricing, status และ delete แบบราย action
+                                            </Text>
+                                            <Space wrap>
+                                                {capabilityMatrix.map((item) => (
+                                                    <Tag
+                                                        key={item.resourceKey}
+                                                        color={item.enabled ? 'blue' : item.securityLevel === 'governance' ? 'red' : 'default'}
+                                                    >
+                                                        {item.title}
+                                                    </Tag>
+                                                ))}
+                                            </Space>
+                                        </Space>
+                                    </Card>
+
+                                    {isEdit ? (
                                         <Card bordered={false} style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                                 <div style={{ padding: 6, background: '#fff7ed', borderRadius: 8 }}>
@@ -514,16 +623,16 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                 </div>
                                             </div>
                                         </Card>
-                                    )}
+                                    ) : null}
 
-                                    {!hasSelectableCategories && (
+                                    {!hasSelectableCategories ? (
                                         <Alert
                                             type="warning"
                                             showIcon
                                             message="ยังไม่มีหมวดหมู่ที่เปิดใช้งาน"
                                             description="กรุณาตรวจสอบหน้าจัดการหมวดหมู่ก่อนบันทึก"
                                         />
-                                    )}
+                                    ) : null}
                                 </div>
                             </Col>
                         </Row>
@@ -540,9 +649,9 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                     <Button key="cancel" onClick={() => setIsCategoryModalVisible(false)} style={{ borderRadius: 10, minWidth: 80, height: 36 }}>
                         ยกเลิก
                     </Button>,
-                    <Button 
-                        key="submit" 
-                        type="primary" 
+                    <Button
+                        key="submit"
+                        type="primary"
                         onClick={() => {
                             form.setFieldsValue({ category_ids: tempCategoryIds });
                             setIsCategoryModalVisible(false);
@@ -550,22 +659,22 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                         style={{ borderRadius: 10, minWidth: 80, height: 36, background: '#4F46E5', borderColor: '#4F46E5' }}
                     >
                         ตกลง
-                    </Button>
+                    </Button>,
                 ]}
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {categories.map((cat) => {
-                        const isSelected = tempCategoryIds.includes(cat.id);
-                        const isDisabled = !cat.is_active && !isSelected;
-                        
+                    {categories.map((category) => {
+                        const isSelected = tempCategoryIds.includes(category.id);
+                        const isDisabled = (!category.is_active && !isSelected) || isCatalogReadOnly;
+
                         return (
                             <div
-                                key={cat.id}
+                                key={category.id}
                                 onClick={() => {
                                     if (isDisabled) return;
                                     const newIds = isSelected
-                                        ? tempCategoryIds.filter((id) => id !== cat.id)
-                                        : [...tempCategoryIds, cat.id];
+                                        ? tempCategoryIds.filter((value) => value !== category.id)
+                                        : [...tempCategoryIds, category.id];
                                     setTempCategoryIds(newIds);
                                 }}
                                 style={{
@@ -582,8 +691,8 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                     transition: 'all 0.15s ease',
                                 }}
                             >
-                                <span>{cat.display_name}</span>
-                                {isSelected && <CheckCircleOutlined style={{ color: '#3b82f6' }} />}
+                                <span>{category.display_name}</span>
+                                {isSelected ? <CheckCircleOutlined style={{ color: '#3b82f6' }} /> : null}
                             </div>
                         );
                     })}

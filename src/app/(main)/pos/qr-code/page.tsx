@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Modal, Radio, Skeleton, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Card, Modal, Radio, Skeleton, Space, Tag, Tooltip, Typography, message } from 'antd';
 import { CopyOutlined, DownloadOutlined, LinkOutlined, QrcodeOutlined, ReloadOutlined, SyncOutlined, TableOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
@@ -32,6 +32,7 @@ import { createTableQrPrintDocument, type TableQrPrintItem } from '../../../../u
 import { buildTableQrExportCanvas, downloadCanvasAsPng } from '../../../../utils/print-settings/tableQrExport';
 import { takeawayQrService, type TakeawayQrInfo } from '../../../../services/pos/takeawayQr.service';
 import { getBackendErrorMessage, unwrapBackendData } from '../../../../utils/api/backendResponse';
+import { QR_CODE_CAPABILITIES, QR_CODE_ROLE_BLUEPRINT } from '../../../../lib/rbac/qr-code-capabilities';
 
 const { Text } = Typography;
 const DEFAULT_PAGE_SIZE = 10;
@@ -78,8 +79,9 @@ const formatDate = (value?: string | Date | null) => {
 const getTableStatusLabel = (status: TableStatus) => status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง';
 const toSafeFilename = (value: string) => value.replace(/[^\w\u0E00-\u0E7F-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'table';
 const getCanvasId = (tableId: string) => `table-qr-export-canvas-${tableId}`;
+const normalizeRoleName = (value?: string | null) => String(value ?? '').trim().toLowerCase();
 
-function TableQrCard({ table, customerUrl, canRotate, rotating, exporting, onOpen, onRotate, onExport, onPreviewQr }: { table: TableQrCodeListItem; customerUrl: string; canRotate: boolean; rotating: boolean; exporting: boolean; onOpen: (table: TableQrCodeListItem) => void; onRotate: (table: TableQrCodeListItem) => void; onExport: (table: TableQrCodeListItem) => void; onPreviewQr: (table: TableQrCodeListItem) => void; }) {
+function TableQrCard({ table, customerUrl, canPreview, canRotate, rotating, exporting, onOpen, onRotate, onExport, onPreviewQr }: { table: TableQrCodeListItem; customerUrl: string; canPreview: boolean; canRotate: boolean; rotating: boolean; exporting: boolean; onOpen: (table: TableQrCodeListItem) => void; onRotate: (table: TableQrCodeListItem) => void; onExport: (table: TableQrCodeListItem) => void; onPreviewQr: (table: TableQrCodeListItem) => void; }) {
     const hasQrUrl = Boolean(customerUrl);
     return (
         <article className="qr-table-card">
@@ -92,7 +94,7 @@ function TableQrCard({ table, customerUrl, canRotate, rotating, exporting, onOpe
                     <Tag color={table.is_active ? 'processing' : 'default'} style={{ margin: 0, borderRadius: 999 }}>{table.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</Tag>
                 </Space>
             </div>
-            <div className={`qr-code-box ${hasQrUrl ? 'qr-code-box-clickable' : ''}`} onClick={() => hasQrUrl && onPreviewQr(table)}>
+            <div className={`qr-code-box ${hasQrUrl && canPreview ? 'qr-code-box-clickable' : ''}`} onClick={() => hasQrUrl && canPreview && onPreviewQr(table)}>
                 {hasQrUrl ? <DynamicQRCode value={customerUrl} size={140} /> : <Text type="secondary">ยังไม่มี QR สำหรับโต๊ะนี้</Text>}
             </div>
             <Tooltip title={customerUrl || 'ยังไม่มีลิงก์ลูกค้า'}>
@@ -114,8 +116,18 @@ export default function TableQrCodePage() {
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canRotateQr = can('tables.page', 'update');
-    const canOpenTakeawayQr = can('orders.page', 'create');
+    const canSearchQr = can('qr_code.search.feature', 'view');
+    const canFilterQr = can('qr_code.filter.feature', 'view');
+    const canPreviewQr = can('qr_code.preview.feature', 'view');
+    const canOpenCustomerLink = can('qr_code.customer_link.feature', 'view');
+    const canRotateQr = can('qr_code.rotate.feature', 'update');
+    const canSingleExportQr = can('qr_code.single_export.feature', 'update');
+    const canBulkExportQr = can('qr_code.bulk_export.feature', 'update');
+    const canViewTakeawayQr = can('qr_code.takeaway.feature', 'view');
+    const canRotateTakeawayQr = can('qr_code.takeaway_rotate.feature', 'update');
+    const canTakeawayCustomerLink = can('qr_code.takeaway_customer_link.feature', 'view');
+    const canTakeawayExport = can('qr_code.takeaway_export.feature', 'update');
+    const canNavigateTables = can('tables.page', 'view');
     const { page, setPage, pageSize, setPageSize, total, setTotal, searchText, setSearchText, debouncedSearch, createdSort, setCreatedSort, filters, updateFilter, getQueryParams, isUrlReady } = useListState({ defaultPageSize: DEFAULT_PAGE_SIZE, defaultFilters: { status: 'all' as StatusFilter, table_state: 'all' as TableStateFilter } });
 
     const [tables, setTables] = useState<TableQrCodeListItem[]>([]);
@@ -170,6 +182,25 @@ export default function TableQrCodePage() {
     const takeawayQrSubtitle = 'สแกนคิวอาร์โค้ดนี้เพื่อสั่งอาหาร';
     const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
     const takeawayQrRenderKey = takeawayQr?.token || takeawayCustomerUrl || 'takeaway-qr';
+    const qrRoleBlueprint = useMemo(
+        () =>
+            QR_CODE_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(user?.role)
+            ) ?? null,
+        [user?.role]
+    );
+    const qrCapabilityMatrix = useMemo(
+        () => QR_CODE_CAPABILITIES.map((item) => ({ ...item, allowed: can(item.resourceKey, item.action) })),
+        [can]
+    );
+    const qrAllowedCount = useMemo(
+        () => qrCapabilityMatrix.filter((item) => item.allowed).length,
+        [qrCapabilityMatrix]
+    );
+    const qrRestrictedCapabilities = useMemo(
+        () => qrCapabilityMatrix.filter((item) => !item.allowed),
+        [qrCapabilityMatrix]
+    );
 
     const captureCanvasImage = useCallback(async (canvasId: string) => {
         for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -360,10 +391,14 @@ export default function TableQrCodePage() {
     }, [buildCustomerUrl, captureCanvasImage, pendingAutoPrint, tables]);
 
     const handleOpenCustomerPage = useCallback((table: TableQrCodeListItem) => {
+        if (!canOpenCustomerLink) {
+            message.error('คุณไม่มีสิทธิ์เปิดลิงก์ลูกค้า');
+            return;
+        }
         const customerUrl = buildCustomerUrl(table.customer_path);
         if (!customerUrl) return message.warning('ยังไม่มีลิงก์สำหรับโต๊ะนี้');
         window.open(customerUrl, '_blank', 'noopener,noreferrer');
-    }, [buildCustomerUrl]);
+    }, [buildCustomerUrl, canOpenCustomerLink]);
 
     const handleRotateQr = useCallback(async (table: TableQrCodeListItem) => {
         if (!canRotateQr) return void message.error('คุณไม่มีสิทธิ์ Refresh QR');
@@ -448,6 +483,10 @@ export default function TableQrCodePage() {
     }, []);
 
     const handleConfirmExport = useCallback(async () => {
+        if (!canSingleExportQr) {
+            message.error('คุณไม่มีสิทธิ์ export QR รายรายการ');
+            return;
+        }
         if (!exportTargetTable) return;
         const customerUrl = buildCustomerUrl(exportTargetTable.customer_path);
         if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้');
@@ -514,7 +553,7 @@ export default function TableQrCodePage() {
         } finally {
             setExportingId(null);
         }
-    }, [buildCustomerUrl, buildStandardExportCanvas, captureCanvasImage, exportFormat, exportTargetTable, openQrPrintExport]);
+    }, [buildCustomerUrl, buildStandardExportCanvas, canSingleExportQr, captureCanvasImage, exportFormat, exportTargetTable, openQrPrintExport]);
 
     const readTakeawayQrResponse = useCallback(async (response: Response, fallback: string) => {
         const payload = await response.json().catch(() => null);
@@ -525,6 +564,10 @@ export default function TableQrCodePage() {
     }, []);
 
     const handleOpenTakeawayQrModal = useCallback(async () => {
+        if (!canViewTakeawayQr) {
+            message.error('คุณไม่มีสิทธิ์เปิด Takeaway QR');
+            return;
+        }
         setIsTakeawayQrModalOpen(true);
         if (takeawayQr) return;
 
@@ -537,9 +580,13 @@ export default function TableQrCodePage() {
         } finally {
             setIsTakeawayQrLoading(false);
         }
-    }, [takeawayQr]);
+    }, [canViewTakeawayQr, takeawayQr]);
 
     const handleRefreshTakeawayQr = useCallback(async () => {
+        if (!canRotateTakeawayQr) {
+            message.error('คุณไม่มีสิทธิ์ refresh Takeaway QR');
+            return;
+        }
         setIsTakeawayQrRefreshing(true);
         try {
             const rotateTakeawayQr = async (forceRefreshCsrf = false): Promise<TakeawayQrInfo> => {
@@ -570,9 +617,13 @@ export default function TableQrCodePage() {
         } finally {
             setIsTakeawayQrRefreshing(false);
         }
-    }, [csrfToken, readTakeawayQrResponse]);
+    }, [canRotateTakeawayQr, csrfToken, readTakeawayQrResponse]);
 
     const handleCopyTakeawayQrLink = useCallback(async () => {
+        if (!canTakeawayCustomerLink) {
+            message.error('คุณไม่มีสิทธิ์คัดลอกลิงก์ takeaway');
+            return;
+        }
         if (!takeawayCustomerUrl) {
             message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
             return;
@@ -584,16 +635,20 @@ export default function TableQrCodePage() {
         } catch {
             message.error('คัดลอกลิงก์ไม่สำเร็จ');
         }
-    }, [takeawayCustomerUrl]);
+    }, [canTakeawayCustomerLink, takeawayCustomerUrl]);
 
     const handleOpenTakeawayCustomerPage = useCallback(() => {
+        if (!canTakeawayCustomerLink) {
+            message.error('คุณไม่มีสิทธิ์เปิดลิงก์ takeaway');
+            return;
+        }
         if (!takeawayCustomerUrl) {
             message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
             return;
         }
 
         window.open(takeawayCustomerUrl, '_blank', 'noopener,noreferrer');
-    }, [takeawayCustomerUrl]);
+    }, [canTakeawayCustomerLink, takeawayCustomerUrl]);
 
     const buildTakeawayExportSource = useCallback(async () => {
         if (!takeawayCustomerUrl) throw new Error('No takeaway QR link available');
@@ -605,6 +660,10 @@ export default function TableQrCodePage() {
     }, [captureCanvasImage, takeawayCustomerUrl]);
 
     const handleOpenTakeawayExportModal = useCallback(() => {
+        if (!canTakeawayExport) {
+            message.error('คุณไม่มีสิทธิ์ export Takeaway QR');
+            return;
+        }
         if (!takeawayCustomerUrl) {
             message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
             return;
@@ -612,9 +671,13 @@ export default function TableQrCodePage() {
 
         setTakeawayQrExportFormat('receipt');
         setIsTakeawayQrExportModalOpen(true);
-    }, [takeawayCustomerUrl]);
+    }, [canTakeawayExport, takeawayCustomerUrl]);
 
     const handleConfirmTakeawayExport = useCallback(async () => {
+        if (!canTakeawayExport) {
+            message.error('คุณไม่มีสิทธิ์ export Takeaway QR');
+            return;
+        }
         if (!takeawayCustomerUrl) {
             message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
             return;
@@ -699,9 +762,13 @@ export default function TableQrCodePage() {
         } finally {
             setIsTakeawayQrExporting(false);
         }
-    }, [buildStandardExportCanvas, buildTakeawayExportSource, openQrPrintExport, takeawayCustomerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrExportFormat, takeawayQrHeading, takeawayQrSubtitle]);
+    }, [buildStandardExportCanvas, buildTakeawayExportSource, canTakeawayExport, openQrPrintExport, takeawayCustomerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrExportFormat, takeawayQrHeading, takeawayQrSubtitle]);
 
     const handleOpenSingleTableExportModal = useCallback((target: TableQrCodeListItem) => {
+        if (!canSingleExportQr) {
+            message.error('คุณไม่มีสิทธิ์ export QR รายรายการ');
+            return;
+        }
         const customerUrl = buildCustomerUrl(target.customer_path);
         if (!customerUrl) {
             message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้');
@@ -711,15 +778,23 @@ export default function TableQrCodePage() {
         setExportTargetTable(target);
         setExportFormat('receipt');
         setIsExportModalOpen(true);
-    }, [buildCustomerUrl]);
+    }, [buildCustomerUrl, canSingleExportQr]);
 
     const handleOpenBulkExportModal = useCallback(() => {
+        if (!canBulkExportQr) {
+            message.error('คุณไม่มีสิทธิ์ export QR ทั้งหมด');
+            return;
+        }
         setBulkExportFormat('receipt');
         setBulkExportProgress(null);
         setIsBulkExportModalOpen(true);
-    }, []);
+    }, [canBulkExportQr]);
 
     const handleConfirmBulkExport = useCallback(async () => {
+        if (!canBulkExportQr) {
+            message.error('คุณไม่มีสิทธิ์ export QR ทั้งหมด');
+            return;
+        }
         if (bulkExporting) return;
 
         setBulkExporting(true);
@@ -838,7 +913,15 @@ export default function TableQrCodePage() {
             setBulkExportProgress(null);
             setBulkRenderTarget(null);
         }
-    }, [bulkExportFormat, bulkExporting, buildCustomerUrl, captureBulkRenderedQr, fetchAllTablesForBulkExport, openQrPrintExport, waitForNextFrame]);
+    }, [bulkExportFormat, bulkExporting, buildCustomerUrl, canBulkExportQr, captureBulkRenderedQr, fetchAllTablesForBulkExport, openQrPrintExport, waitForNextFrame]);
+
+    const handlePreviewQr = useCallback((table: TableQrCodeListItem) => {
+        if (!canPreviewQr) {
+            message.error('คุณไม่มีสิทธิ์ preview QR');
+            return;
+        }
+        setPreviewTable(table);
+    }, [canPreviewQr]);
 
     if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบการใช้งาน..." />;
     if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
@@ -853,7 +936,7 @@ export default function TableQrCodePage() {
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchQrCodes({ background: tables.length > 0 })}></Button>
-                        {canOpenTakeawayQr ? (
+                        {canViewTakeawayQr ? (
                             <Button icon={<QrcodeOutlined />} onClick={() => void handleOpenTakeawayQrModal()} style={{ borderRadius: 12, fontWeight: 700 }}>
                                 {TAKEAWAY_QR_UI.label}
                             </Button>
@@ -861,28 +944,63 @@ export default function TableQrCodePage() {
                         <Button
                             icon={<DownloadOutlined />}
                             onClick={handleOpenBulkExportModal}
-                            disabled={loading || refreshing || total === 0 || bulkExporting}
+                            disabled={!canBulkExportQr || loading || refreshing || total === 0 || bulkExporting}
                         >
                             {TABLE_QR_EXPORT_UI.bulkButtonLabel}
                         </Button>
-                        <Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>จัดการโต๊ะ</Button>
+                        <Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')} disabled={!canNavigateTables}>จัดการโต๊ะ</Button>
                     </Space>
                 }
             />
             <PageContainer>
                 <PageStack>
+                    <PageSection
+                        title="QR Capability Matrix"
+                        extra={<Text strong>{qrAllowedCount}/{qrCapabilityMatrix.length} capabilities</Text>}
+                    >
+                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                            {qrRoleBlueprint ? (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`QR Code baseline สำหรับ ${qrRoleBlueprint.roleName}`}
+                                    description={`${qrRoleBlueprint.summary} | ทำได้: ${qrRoleBlueprint.allowed.join(', ')}${qrRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${qrRoleBlueprint.denied.join(', ')}` : ''}`}
+                                />
+                            ) : null}
+                            {qrRestrictedCapabilities.length > 0 ? (
+                                <Alert
+                                    type="warning"
+                                    showIcon
+                                    message="Some QR actions are restricted by policy"
+                                    description={qrRestrictedCapabilities.map((item) => item.title).join(', ')}
+                                />
+                            ) : null}
+                            <Card size="small" style={{ borderRadius: 16 }}>
+                                <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                                    <Text type="secondary">QR capability ถูกแยกจาก `tables.page` และ `orders.page` เพื่อควบคุม preview, customer link, rotate, export, bulk export และ takeaway governance แบบราย action</Text>
+                                    <Space wrap>
+                                        {qrCapabilityMatrix.map((item) => (
+                                            <Tag key={item.resourceKey} color={item.allowed ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
+                                                {item.title}
+                                            </Tag>
+                                        ))}
+                                    </Space>
+                                </Space>
+                            </Card>
+                        </Space>
+                    </PageSection>
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} />
+                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} disabled={!canSearchQr} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
-                                <ModalSelector<StatusFilter> title="สถานะการใช้งาน" value={filters.status} onChange={(value) => updateFilter('status', value)} options={[{ label: 'ทั้งหมด', value: 'all' }, { label: 'ใช้งาน', value: 'active' }, { label: 'ปิดใช้งาน', value: 'inactive' }]} style={{ minWidth: 140 }} />
-                                <ModalSelector<TableStateFilter> title="สถานะโต๊ะ" value={filters.table_state} onChange={(value) => updateFilter('table_state', value)} options={[{ label: 'ทุกสถานะ', value: 'all' }, { label: 'ว่าง', value: TableStatus.Available }, { label: 'ไม่ว่าง', value: TableStatus.Unavailable }]} style={{ minWidth: 140 }} />
-                                <ModalSelector<CreatedSort> title="เรียงลำดับ" value={createdSort} onChange={setCreatedSort} options={[{ label: 'เก่าก่อน', value: 'old' }, { label: 'ใหม่ก่อน', value: 'new' }]} style={{ minWidth: 140 }} />
+                                <ModalSelector<StatusFilter> title="สถานะการใช้งาน" value={filters.status} onChange={(value) => updateFilter('status', value)} options={[{ label: 'ทั้งหมด', value: 'all' }, { label: 'ใช้งาน', value: 'active' }, { label: 'ปิดใช้งาน', value: 'inactive' }]} style={{ minWidth: 140 }} disabled={!canFilterQr} />
+                                <ModalSelector<TableStateFilter> title="สถานะโต๊ะ" value={filters.table_state} onChange={(value) => updateFilter('table_state', value)} options={[{ label: 'ทุกสถานะ', value: 'all' }, { label: 'ว่าง', value: TableStatus.Available }, { label: 'ไม่ว่าง', value: TableStatus.Unavailable }]} style={{ minWidth: 140 }} disabled={!canFilterQr} />
+                                <ModalSelector<CreatedSort> title="เรียงลำดับ" value={createdSort} onChange={setCreatedSort} options={[{ label: 'เก่าก่อน', value: 'old' }, { label: 'ใหม่ก่อน', value: 'new' }]} style={{ minWidth: 140 }} disabled={!canFilterQr} />
                             </Space>
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองปรับคำค้นหาหรือตัวกรอง' : 'เปิดโต๊ะให้ใช้งานก่อน แล้วระบบจะสร้าง QR ให้อัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองปรับคำค้นหาหรือตัวกรอง' : 'เปิดโต๊ะให้ใช้งานก่อน แล้วระบบจะสร้าง QR ให้อัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canPreview={canPreviewQr} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={handlePreviewQr} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
@@ -892,16 +1010,16 @@ export default function TableQrCodePage() {
                 onCancel={() => setIsTakeawayQrModalOpen(false)}
                 footer={
                     <Space wrap style={{ width: '100%', justifyContent: 'center' }}>
-                        <Button icon={<SyncOutlined spin={isTakeawayQrRefreshing} />} onClick={() => void handleRefreshTakeawayQr()} loading={isTakeawayQrRefreshing} disabled={isTakeawayQrLoading}>
+                        <Button icon={<SyncOutlined spin={isTakeawayQrRefreshing} />} onClick={() => void handleRefreshTakeawayQr()} loading={isTakeawayQrRefreshing} disabled={!canRotateTakeawayQr || isTakeawayQrLoading}>
                             {TAKEAWAY_QR_UI.refreshLabel}
                         </Button>
-                        <Button icon={<DownloadOutlined />} onClick={() => void handleOpenTakeawayExportModal()} disabled={!takeawayCustomerUrl}>
+                        <Button icon={<DownloadOutlined />} onClick={() => void handleOpenTakeawayExportModal()} disabled={!canTakeawayExport || !takeawayCustomerUrl}>
                             {TAKEAWAY_QR_UI.exportLabel}
                         </Button>
-                        <Button icon={<CopyOutlined />} onClick={() => void handleCopyTakeawayQrLink()} disabled={!takeawayCustomerUrl}>
+                        <Button icon={<CopyOutlined />} onClick={() => void handleCopyTakeawayQrLink()} disabled={!canTakeawayCustomerLink || !takeawayCustomerUrl}>
                             {TAKEAWAY_QR_UI.copyLinkLabel}
                         </Button>
-                        <Button icon={<LinkOutlined />} onClick={handleOpenTakeawayCustomerPage} disabled={!takeawayCustomerUrl}>
+                        <Button icon={<LinkOutlined />} onClick={handleOpenTakeawayCustomerPage} disabled={!canTakeawayCustomerLink || !takeawayCustomerUrl}>
                             {TAKEAWAY_QR_UI.openPageLabel}
                         </Button>
                     </Space>

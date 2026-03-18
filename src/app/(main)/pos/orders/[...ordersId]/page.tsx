@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
 import { groupOrderItems } from "../../../../../utils/orderGrouping";
-import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider, Alert } from "antd";
 import { 
     ShopOutlined, 
     PlusOutlined, 
@@ -49,10 +49,12 @@ import { useSocket } from "../../../../../hooks/useSocket";
 import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEvents";
 import { primeOrderTransitionCache } from "../../../../../utils/pos/orderTransitionCache";
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import SmartImage from "../../../../../components/ui/image/SmartImage";
 import { resolveImageSource } from "../../../../../utils/image/source";
 import { OrderItemDetailInput } from "../../../../../utils/pos/orderToppings";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../../lib/rbac/order-workflow-capabilities";
 
 
 const { Title, Text } = Typography;
@@ -80,9 +82,13 @@ export default function POSOrderDetailsPage() {
 
     const { user } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    // Avoid "flash 403" while effective permissions are still loading.
-    const canUpdateOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.page", "update"));
-    const canCancelOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.cancel.feature", "access"));
+    const isAdminUser = user?.role === "Admin";
+    const canOpenOrderDetail = isAdminUser || (!permissionLoading && can("orders.detail.feature", "access"));
+    const canManageLineItems = isAdminUser || (!permissionLoading && can("orders.line_items.feature", "update"));
+    const canUpdateOrderItems = isAdminUser || (!permissionLoading && can("orders.item_status.feature", "update"));
+    const canEditOrderWorkflow = isAdminUser || (!permissionLoading && can("orders.edit.feature", "update"));
+    const canCancelOrders = isAdminUser || (!permissionLoading && can("orders.cancel.feature", "access"));
+    const canUpdateOrders = canManageLineItems;
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -195,6 +201,34 @@ export default function POSOrderDetailsPage() {
     }, [order]);
     const shouldVirtualizeActive = groupedActiveItems.length > 12;
     const shouldVirtualizeServed = groupedServedItems.length > 12;
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === String(user?.role ?? "").trim().toLowerCase()
+            ) ?? null,
+        [user?.role]
+    );
+    const detailCapabilityKeys = useMemo(
+        () =>
+            new Set([
+                "orders.detail.feature",
+                "orders.line_items.feature",
+                "orders.item_status.feature",
+                "orders.edit.feature",
+                "orders.cancel.feature",
+                "payments.checkout.feature",
+            ]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => detailCapabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, detailCapabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
 
     useEffect(() => {
         if (waitingPaymentPath && isWaitingForPaymentStatus(order?.status)) {
@@ -202,8 +236,16 @@ export default function POSOrderDetailsPage() {
         }
     }, [order?.status, router, waitingPaymentPath]);
 
+    if (permissionLoading && !isAdminUser) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!canOpenOrderDetail) {
+        return <Empty description="คุณไม่มีสิทธิ์เข้าถึงรายละเอียดออเดอร์" />;
+    }
+
     const handleCancelSelected = async () => {
-        if (!canUpdateOrders) {
+        if (!canUpdateOrderItems) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
@@ -281,7 +323,7 @@ export default function POSOrderDetailsPage() {
 
 
     const handleCancelItem = async (itemId: string) => {
-        if (!canUpdateOrders) {
+        if (!canUpdateOrderItems) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
@@ -321,7 +363,7 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: OrderItemDetailInput[] = []) => {
-        if (!canUpdateOrders) {
+        if (!canManageLineItems) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
@@ -369,7 +411,7 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleEditClick = (record: SalesOrderItem) => {
-        if (!canUpdateOrders) {
+        if (!canManageLineItems) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
@@ -378,7 +420,7 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleAddItem = async (product: Products, quantity: number, notes: string, details: OrderItemDetailInput[] = []) => {
-        if (!canUpdateOrders) {
+        if (!canManageLineItems) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
@@ -424,7 +466,7 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleMoveToWaitingForPayment = async () => {
-        if (!canUpdateOrders) {
+        if (!canEditOrderWorkflow) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
@@ -588,10 +630,10 @@ export default function POSOrderDetailsPage() {
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Space>
                     <Tooltip title="แก้ไข">
-                        <Button type="text" icon={<EditOutlined />} onClick={() => handleEditClick(record)} disabled={!canUpdateOrders || isUpdating} />
+                        <Button type="text" icon={<EditOutlined />} onClick={() => handleEditClick(record)} disabled={!canManageLineItems || isUpdating} />
                     </Tooltip>
                     <Tooltip title="ยกเลิก">
-                        <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => handleCancelItem(record.id)} disabled={!canUpdateOrders || isUpdating} />
+                        <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => handleCancelItem(record.id)} disabled={!canUpdateOrderItems || isUpdating} />
                     </Tooltip>
                 </Space>
             )
@@ -801,6 +843,49 @@ export default function POSOrderDetailsPage() {
             />
 
             <main className="order-detail-content" style={orderDetailStyles.contentWrapper}>
+                <Space direction="vertical" size={12} style={{ width: "100%", marginBottom: 20 }}>
+                    {selectedBlueprint ? (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`Order detail baseline for ${selectedBlueprint.roleName}`}
+                            description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                        />
+                    ) : null}
+                    <Alert
+                        type="success"
+                        showIcon
+                        message="Order Detail Capability Matrix"
+                        description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} order-detail capabilities enabled.`}
+                    />
+                    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                        {capabilityMatrix.map((item) => (
+                            <div
+                                key={item.resourceKey}
+                                style={{
+                                    borderRadius: 16,
+                                    border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                    background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                    padding: 14,
+                                }}
+                            >
+                                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                                <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                                <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+                                    {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                    {(!canManageLineItems || !canUpdateOrderItems || !canEditOrderWorkflow || !canCancelOrders) ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="Order governance is partially restricted"
+                            description="Capabilities for line-item editing, item status updates, workflow transitions, or full-order cancellation are enforced separately on this page."
+                        />
+                    ) : null}
+                </Space>
                 <Row gutter={[20, 20]}>
                     <Col xs={24} lg={16}>
                         {/* Active Items Section */}
@@ -861,7 +946,7 @@ export default function POSOrderDetailsPage() {
                                                         }
                                                         setIsAddModalOpen(true);
                                                     }}
-                                                    disabled={!canUpdateOrders || isUpdating}
+                                                    disabled={!canManageLineItems || isUpdating}
                                                     style={orderDetailStyles.actionButtonPrimary}
                                                     className="header-action-btn"
                                                 >
@@ -876,7 +961,7 @@ export default function POSOrderDetailsPage() {
                                                 danger
                                                 icon={<CloseCircleOutlined />}
                                                 onClick={handleCancelSelected}
-                                                disabled={!canUpdateOrders || isUpdating}
+                                                disabled={!canUpdateOrderItems || isUpdating}
                                                 className="bulk-action-btn"
                                             >
                                                 <span>ยกเลิก ({selectedRowKeys.length})</span>
@@ -991,7 +1076,7 @@ export default function POSOrderDetailsPage() {
                                                         danger 
                                                         icon={<CloseCircleOutlined />} 
                                                         onClick={() => handleCancelItem(item.id)}
-                                                        disabled={!canUpdateOrders || isUpdating}
+                                                        disabled={!canUpdateOrderItems || isUpdating}
                                                         style={{ height: 42, borderRadius: 10, fontSize: 15, padding: '0 20px', fontWeight: 600 }}
                                                         className="scale-hover"
                                                     >
@@ -1002,7 +1087,7 @@ export default function POSOrderDetailsPage() {
                                                         type="text" 
                                                         icon={<EditOutlined />} 
                                                         onClick={() => handleEditClick(item)}
-                                                        disabled={!canUpdateOrders || isUpdating}
+                                                        disabled={!canUpdateOrderItems || isUpdating}
                                                         style={{ height: 42, borderRadius: 10, fontSize: 15, padding: '0 20px', fontWeight: 600 }}
                                                         className="scale-hover"
                                                     >
@@ -1237,7 +1322,7 @@ export default function POSOrderDetailsPage() {
                                 block 
                                 size="large" 
                                 onClick={handleMoveToWaitingForPayment}
-                                disabled={!canUpdateOrders || isUpdating || !canMoveToWaitingForPayment}
+                                disabled={!canEditOrderWorkflow || isUpdating || !canMoveToWaitingForPayment}
                                 style={{ 
                                     marginTop: 16, 
                                     height: 48, 

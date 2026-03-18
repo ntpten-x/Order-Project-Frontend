@@ -1,27 +1,29 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Space, Spin, Switch, Tag, Typography, message } from 'antd';
+import {
+    AppstoreOutlined,
+    CarOutlined,
+    CheckCircleFilled,
+    DeleteOutlined,
+    ExclamationCircleOutlined,
+    SaveOutlined,
+} from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
-import {
-    DeleteOutlined,
-    SaveOutlined,
-    CarOutlined,
-    CheckCircleFilled,
-    AppstoreOutlined,
-    ExclamationCircleOutlined
-} from '@ant-design/icons';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/delivery/style';
 import { Delivery } from '../../../../../../types/api/pos/delivery';
 import { isSupportedImageSource, normalizeImageSource, resolveImageSource } from '../../../../../../utils/image/source';
-import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import SmartAvatar from '../../../../../../components/ui/image/SmartAvatar';
+import { useAuth } from '../../../../../../contexts/AuthContext';
+import { DELIVERY_CAPABILITIES, DELIVERY_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/delivery-capabilities';
 
 type DeliveryManageMode = 'add' | 'edit';
 
@@ -40,7 +42,7 @@ const formatDate = (raw?: string | Date) => {
     if (Number.isNaN(date.getTime())) return '-';
     return new Intl.DateTimeFormat('th-TH', {
         dateStyle: 'medium',
-        timeStyle: 'short'
+        timeStyle: 'short',
     }).format(date);
 };
 
@@ -48,7 +50,7 @@ const DeliveryPreviewCard = ({
     deliveryName,
     deliveryPrefix,
     logo,
-    isActive
+    isActive,
 }: {
     deliveryName: string;
     deliveryPrefix: string;
@@ -57,63 +59,69 @@ const DeliveryPreviewCard = ({
 }) => {
     const logoSource = resolveImageSource(logo);
     return (
-        <div style={{
-        background: 'white',
-        borderRadius: 20,
-        padding: 20,
-        boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-        border: '1px solid #F1F5F9',
-    }}>
-        <Title level={5} style={{ color: '#0891B2', marginBottom: 16, fontWeight: 700 }}>ตัวอย่างการแสดงผล</Title>
+        <div
+            style={{
+                background: 'white',
+                borderRadius: 20,
+                padding: 20,
+                boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+                border: '1px solid #F1F5F9',
+            }}
+        >
+            <Title level={5} style={{ color: '#0891B2', marginBottom: 16, fontWeight: 700 }}>
+                ตัวอย่างการแสดงผล
+            </Title>
 
-        <div style={{
-            borderRadius: 16,
-            border: `1px solid ${isActive ? '#a5f3fc' : '#e2e8f0'}`,
-            padding: 14,
-            background: isActive ? '#ecfeff' : '#f8fafc',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 16,
-        }}>
-            <SmartAvatar
-                src={logo}
-                alt={deliveryName || "Delivery logo"}
-                shape="square"
-                size={48}
-                icon={<CarOutlined />}
-                imageStyle={{ objectFit: "contain" }}
+            <div
                 style={{
-                    borderRadius: 12,
-                    background: logoSource
-                        ? '#ffffff'
-                        : isActive
-                            ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
-                            : '#e2e8f0',
-                    color: isActive ? '#0891B2' : '#64748b',
-                    border: logoSource ? '1px solid #bae6fd' : undefined,
+                    borderRadius: 16,
+                    border: `1px solid ${isActive ? '#a5f3fc' : '#e2e8f0'}`,
+                    padding: 14,
+                    background: isActive ? '#ecfeff' : '#f8fafc',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 12,
+                    marginBottom: 16,
                 }}
-            />
+            >
+                <SmartAvatar
+                    src={logo}
+                    alt={deliveryName || 'Delivery logo'}
+                    shape="square"
+                    size={48}
+                    icon={<CarOutlined />}
+                    imageStyle={{ objectFit: 'contain' }}
+                    style={{
+                        borderRadius: 12,
+                        background: logoSource
+                            ? '#ffffff'
+                            : isActive
+                                ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
+                                : '#e2e8f0',
+                        color: isActive ? '#0891B2' : '#64748b',
+                        border: logoSource ? '1px solid #bae6fd' : undefined,
+                    }}
+                />
 
-            <div style={{ textAlign: 'left', flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Text strong style={{ fontSize: 16, color: '#0f172a' }}>
-                        {deliveryName || 'ชื่อช่องทางจัดส่ง'}
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }}>
+                            {deliveryName || 'ชื่อช่องทางจัดส่ง'}
+                        </Text>
+                        {isActive ? <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} /> : null}
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+                        รหัสย่อ : {deliveryPrefix || '-'}
                     </Text>
-                    {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                 </div>
-                <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    รหัสย่อ : {deliveryPrefix || '-'}
-                </Text>
             </div>
-        </div>
 
-        <Alert
-            type={isActive ? 'success' : 'warning'}
-            showIcon
-            message={isActive ? 'ช่องทางนี้พร้อมใช้งานในหน้า POS' : 'ช่องทางนี้จะไม่แสดงให้เลือกใช้งาน'}
-        />
-    </div>
+            <Alert
+                type={isActive ? 'success' : 'warning'}
+                showIcon
+                message={isActive ? 'ช่องทางนี้พร้อมใช้งานในหน้า POS' : 'ช่องทางนี้จะไม่แสดงให้เลือกใช้งาน'}
+            />
+        </div>
     );
 };
 
@@ -122,45 +130,85 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const [form] = Form.useForm<DeliveryFormValues>();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [deliveryName, setDeliveryName] = useState<string>('');
-    const [deliveryPrefix, setDeliveryPrefix] = useState<string>('');
-    const [logo, setLogo] = useState<string>('');
-    const [isActive, setIsActive] = useState<boolean>(true);
-    const [csrfToken, setCsrfToken] = useState<string>('');
+    const [deliveryName, setDeliveryName] = useState('');
+    const [deliveryPrefix, setDeliveryPrefix] = useState('');
+    const [logo, setLogo] = useState('');
+    const [isActive, setIsActive] = useState(true);
+    const [csrfToken, setCsrfToken] = useState('');
     const [originalDelivery, setOriginalDelivery] = useState<Delivery | null>(null);
-    const [currentDeliveryName, setCurrentDeliveryName] = useState<string>('');
+    const [currentDeliveryName, setCurrentDeliveryName] = useState('');
 
     const mode = params.mode?.[0] as DeliveryManageMode | undefined;
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking, user } = useRoleGuard();
+
+    const { isAuthorized, isChecking } = useRoleGuard({
+        requiredPermission: { resourceKey: 'delivery.manager.feature', action: 'access' },
+        redirectUnauthorized: '/pos/delivery',
+        unauthorizedMessage: 'คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการเดลิเวอรี่',
+    });
+    const { user } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
 
-    const canCreateDelivery = can("delivery.page", "create");
-    const canUpdateDelivery = can("delivery.page", "update");
-    const canDeleteDelivery = can("delivery.page", "delete");
-    const canSubmit = isEdit ? canUpdateDelivery : canCreateDelivery;
+    const canOpenManager = can('delivery.manager.feature', 'access');
+    const canCreateDelivery = can('delivery.page', 'create') && can('delivery.create.feature', 'create') && canOpenManager;
+    const canEditDelivery = can('delivery.page', 'update') && can('delivery.edit.feature', 'update') && canOpenManager;
+    const canUpdateStatus = can('delivery.page', 'update') && can('delivery.status.feature', 'update') && canOpenManager;
+    const canDeleteDelivery = can('delivery.page', 'delete') && can('delivery.delete.feature', 'delete') && canOpenManager;
+    const canSubmitAdd = canCreateDelivery;
+    const canSubmitEdit = canEditDelivery || canUpdateStatus;
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => DELIVERY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            DELIVERY_CAPABILITIES.map((item) => ({
+                ...item,
+                enabled: can(item.resourceKey, item.action),
+            })),
+        [can]
+    );
 
-    const modeTitle = useMemo(() => {
-        if (isEdit) return 'แก้ไขช่องทางจัดส่ง';
-        return 'เพิ่มช่องทางจัดส่ง';
-    }, [isEdit]);
+    const modeTitle = useMemo(() => (isEdit ? 'แก้ไขช่องทางจัดส่ง' : 'เพิ่มช่องทางจัดส่ง'), [isEdit]);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
             message.warning('รูปแบบ URL ไม่ถูกต้อง');
             router.replace('/pos/delivery');
         }
-    }, [isValidMode, mode, id, router]);
+    }, [id, isValidMode, mode, router]);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-            const token = await getCsrfTokenCached();
-            setCsrfToken(token);
-        };
-        fetchCsrf();
+        void getCsrfTokenCached().then(setCsrfToken);
     }, []);
+
+    useEffect(() => {
+        if (isChecking || permissionLoading || !isAuthorized) return;
+
+        if (mode === 'add' && !canCreateDelivery) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง');
+            router.replace('/pos/delivery');
+            return;
+        }
+
+        if (mode === 'edit' && !canEditDelivery && !canUpdateStatus && !canDeleteDelivery) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง');
+            router.replace('/pos/delivery');
+        }
+    }, [
+        canCreateDelivery,
+        canDeleteDelivery,
+        canEditDelivery,
+        canUpdateStatus,
+        isAuthorized,
+        isChecking,
+        mode,
+        permissionLoading,
+        router,
+    ]);
 
     const fetchDelivery = useCallback(async () => {
         if (!id) return;
@@ -188,7 +236,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         } finally {
             setLoading(false);
         }
-    }, [id, form, router]);
+    }, [form, id, router]);
 
     useEffect(() => {
         if (isEdit && isAuthorized && !permissionLoading) {
@@ -196,48 +244,70 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         }
     }, [fetchDelivery, isAuthorized, isEdit, permissionLoading]);
 
-    const checkNameConflict = useCallback(async (rawValue: string) => {
-        const value = rawValue.trim();
-        if (!value) return false;
+    const checkNameConflict = useCallback(
+        async (rawValue: string) => {
+            if (!(isEdit ? canEditDelivery : canCreateDelivery)) return false;
+            const value = rawValue.trim();
+            if (!value) return false;
 
-        if (isEdit && value.toLowerCase() === currentDeliveryName) {
-            return false;
-        }
+            if (isEdit && value.toLowerCase() === currentDeliveryName) {
+                return false;
+            }
 
-        try {
-            const response = await fetch(`/api/pos/delivery/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
-            if (!response.ok) return false;
-            const found = await response.json();
-            if (!found?.id) return false;
-            if (isEdit && found.id === id) return false;
-            return true;
-        } catch {
-            return false;
-        }
-    }, [currentDeliveryName, id, isEdit]);
+            try {
+                const response = await fetch(`/api/pos/delivery/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
+                if (!response.ok) return false;
+                const found = await response.json();
+                if (!found?.id) return false;
+                if (isEdit && found.id === id) return false;
+                return true;
+            } catch {
+                return false;
+            }
+        },
+        [canCreateDelivery, canEditDelivery, currentDeliveryName, id, isEdit]
+    );
 
     const onFinish = async (values: DeliveryFormValues) => {
-        if (!canSubmit) {
-            message.error(isEdit ? "คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง" : "คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง");
+        if (isEdit ? !canSubmitEdit : !canSubmitAdd) {
+            message.error(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง' : 'คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง');
             return;
         }
+
         setSubmitting(true);
         try {
-            const payload: DeliveryFormValues = {
-                delivery_name: values.delivery_name.trim(),
-                delivery_prefix: values.delivery_prefix?.trim().toUpperCase() || undefined,
-                logo: normalizeImageSource(values.logo) || undefined,
-                is_active: values.is_active,
-            };
+            const payload: Partial<DeliveryFormValues> = {};
+
+            if (!isEdit) {
+                payload.delivery_name = values.delivery_name.trim();
+                payload.delivery_prefix = values.delivery_prefix?.trim().toUpperCase() || undefined;
+                payload.logo = normalizeImageSource(values.logo) || undefined;
+                payload.is_active = values.is_active;
+            } else {
+                if (canEditDelivery) {
+                    payload.delivery_name = values.delivery_name.trim();
+                    payload.delivery_prefix = values.delivery_prefix?.trim().toUpperCase() || undefined;
+                    payload.logo = normalizeImageSource(values.logo) || undefined;
+                }
+                if (canUpdateStatus) {
+                    payload.is_active = values.is_active;
+                }
+            }
+
+            if (isEdit && Object.keys(payload).length === 0) {
+                message.warning('ไม่มี field ที่บัญชีนี้มีสิทธิ์บันทึก');
+                return;
+            }
 
             const endpoint = isEdit ? `/api/pos/delivery/update/${id}` : '/api/pos/delivery/create';
             const method = isEdit ? 'PUT' : 'POST';
+            const token = csrfToken || await getCsrfTokenCached();
 
             const response = await fetch(endpoint, {
                 method,
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken,
+                    'X-CSRF-Token': token,
                 },
                 body: JSON.stringify(payload),
             });
@@ -258,11 +328,11 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     };
 
     const handleDelete = () => {
-        if (!id) return;
-        if (!canDeleteDelivery) {
-            message.error("คุณไม่มีสิทธิ์ลบช่องทางจัดส่ง");
+        if (!id || !canDeleteDelivery) {
+            message.error('คุณไม่มีสิทธิ์ลบช่องทางจัดส่ง');
             return;
         }
+
         Modal.confirm({
             title: 'ยืนยันการลบช่องทางจัดส่ง',
             content: `คุณต้องการลบช่องทางจัดส่ง ${deliveryName || '-'} หรือไม่?`,
@@ -273,11 +343,12 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
             onOk: async () => {
                 try {
+                    const token = csrfToken || await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/delivery/delete/${id}`, {
                         method: 'DELETE',
                         headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
+                            'X-CSRF-Token': token,
+                        },
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
@@ -289,7 +360,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                     console.error(error);
                     message.error(error instanceof Error ? error.message : 'ไม่สามารถลบช่องทางจัดส่งได้');
                 }
-            }
+            },
         });
     };
 
@@ -307,7 +378,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
 
-    if (!canSubmit) {
+    if (isEdit ? (!canEditDelivery && !canUpdateStatus && !canDeleteDelivery) : !canCreateDelivery) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
@@ -327,6 +398,27 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
+                    <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
+                        <Alert
+                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                            showIcon
+                            message={selectedRoleBlueprint?.title || 'Delivery manager permissions'}
+                            description={
+                                selectedRoleBlueprint
+                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                    : 'ระบบจะเปิดเฉพาะ field และ action ที่บัญชีนี้มีสิทธิ์'
+                            }
+                        />
+                        {isEdit && !canSubmitEdit ? (
+                            <Alert
+                                type="warning"
+                                showIcon
+                                message="หน้า edit นี้เปิดได้เฉพาะบาง action"
+                                description={canDeleteDelivery ? 'บัญชีนี้ลบช่องทางจัดส่งได้ แต่ไม่สามารถแก้ชื่อ prefix โลโก้ หรือสถานะได้' : 'บัญชีนี้ไม่มี field สำหรับบันทึกในหน้านี้'}
+                            />
+                        ) : null}
+                    </div>
+
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
                             <Spin size="large" tip="กำลังโหลดข้อมูล..." />
@@ -339,7 +431,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                     style={{
                                         borderRadius: 20,
                                         boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                                        overflow: 'hidden'
+                                        overflow: 'hidden',
                                     }}
                                     styles={{ body: { padding: 24 } }}
                                 >
@@ -359,7 +451,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                             if (changedValues.delivery_name !== undefined) setDeliveryName(changedValues.delivery_name);
                                             if (changedValues.delivery_prefix !== undefined) setDeliveryPrefix((changedValues.delivery_prefix || '').toUpperCase());
                                             if (changedValues.logo !== undefined) setLogo(changedValues.logo);
-                                            if (changedValues.is_active !== undefined) setIsActive(changedValues.is_active);
+                                            if (changedValues.is_active !== undefined) setIsActive(Boolean(changedValues.is_active));
                                         }}
                                     >
                                         <Form.Item
@@ -378,8 +470,8 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                         if (!value?.trim()) return;
                                                         const duplicated = await checkNameConflict(value);
                                                         if (duplicated) throw new Error('ชื่อระบบนี้ถูกใช้งานแล้ว');
-                                                    }
-                                                }
+                                                    },
+                                                },
                                             ]}
                                         >
                                             <Input
@@ -387,6 +479,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 placeholder="GrabFood, LINE MAN, ShopeeFood"
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
+                                                disabled={isEdit ? !canEditDelivery : !canCreateDelivery}
                                             />
                                         </Form.Item>
 
@@ -395,7 +488,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                             label={<span style={{ fontWeight: 600, color: '#334155' }}>Prefix</span>}
                                             rules={[
                                                 { max: 10, message: 'ความยาวต้องไม่เกิน 10 ตัวอักษร' },
-                                                { pattern: /^[A-Za-z0-9_-]*$/, message: 'กรอกได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข _ และ -' }
+                                                { pattern: /^[A-Za-z0-9_-]*$/, message: 'กรอกได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข _ และ -' },
                                             ]}
                                         >
                                             <Input
@@ -403,6 +496,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 placeholder="GF, LM, SP"
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}
                                                 maxLength={10}
+                                                disabled={isEdit ? !canEditDelivery : !canCreateDelivery}
                                             />
                                         </Form.Item>
 
@@ -417,14 +511,15 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                         if (!isSupportedImageSource(normalized)) {
                                                             throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
                                                         }
-                                                    }
-                                                }
+                                                    },
+                                                },
                                             ]}
                                         >
                                             <Input
                                                 size="large"
                                                 placeholder="https://example.com/logo.png"
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                                                disabled={isEdit ? !canEditDelivery : !canCreateDelivery}
                                             />
                                         </Form.Item>
 
@@ -435,10 +530,14 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                     <Text type="secondary" style={{ fontSize: 13 }}>เปิดเพื่อให้แสดงในหน้า POS ที่เกี่ยวข้องกับเดลิเวอรี่</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                    <Switch style={{ background: isActive ? '#10B981' : undefined }} />
+                                                    <Switch
+                                                        style={{ background: isActive ? '#10B981' : undefined }}
+                                                        disabled={isEdit ? !canUpdateStatus : !canCreateDelivery}
+                                                    />
                                                 </Form.Item>
                                             </div>
                                         </div>
+
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
                                                 size="large"
@@ -452,13 +551,14 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 htmlType="submit"
                                                 loading={submitting}
                                                 icon={<SaveOutlined />}
+                                                disabled={isEdit ? !canSubmitEdit : !canSubmitAdd}
                                                 style={{
                                                     flex: 2,
                                                     borderRadius: 12,
                                                     height: 46,
                                                     fontWeight: 600,
                                                     background: '#0891B2',
-                                                    boxShadow: '0 4px 12px rgba(8, 145, 178, 0.25)'
+                                                    boxShadow: '0 4px 12px rgba(8, 145, 178, 0.25)',
                                                 }}
                                             >
                                                 บันทึกข้อมูล
@@ -489,6 +589,23 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                             </div>
                                         </Card>
                                     ) : null}
+
+                                    <Card style={{ borderRadius: 16 }}>
+                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                            <Text strong>Delivery Governance</Text>
+                                            <Text type="secondary">Capability ถูกแยกจาก page access เพื่อคุม search/filter/create/edit/status/delete ตาม action จริง</Text>
+                                            <Space wrap>
+                                                {DELIVERY_CAPABILITIES.map((item) => {
+                                                    const enabled = capabilityMatrix.find((candidate) => candidate.resourceKey === item.resourceKey)?.enabled;
+                                                    return (
+                                                        <Tag key={item.resourceKey} color={enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
+                                                            {item.title}
+                                                        </Tag>
+                                                    );
+                                                })}
+                                            </Space>
+                                        </Space>
+                                    </Card>
                                 </div>
                             </Col>
                         </Row>

@@ -5,6 +5,7 @@ import SmartImage from "../../../../components/ui/image/SmartImage";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     App,
+    Alert,
     Badge,
     Button,
     Empty,
@@ -59,6 +60,7 @@ import {
     markNotificationKeys as markNotificationCooldownKeys,
 } from "../../../../utils/pos/servingBoardNotifications";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../lib/rbac/order-workflow-capabilities";
 import { servingBoardStyles } from "./style";
 
 dayjs.extend(relativeTime);
@@ -542,7 +544,13 @@ function Column({
 }
 
 /* ─── Main Page Content ─── */
-function ServingBoardPageContent() {
+function ServingBoardPageContent({
+    can,
+    roleName,
+}: {
+    can: (resourceKey: string, action?: "access" | "view" | "create" | "update" | "delete") => boolean;
+    roleName: string;
+}) {
     const { message } = App.useApp();
     const queryClient = useQueryClient();
     const { socket, isConnected } = useSocket();
@@ -577,6 +585,35 @@ function ServingBoardPageContent() {
     const notificationCooldownRef = useRef<Map<string, number>>(new Map());
     const pageTitleRef = useRef("Serving Board");
     const hiddenNoticeCountRef = useRef(0);
+    const canSearchOrders = can("orders.search.feature", "view");
+    const canViewServingBoard = can("orders.serving_board.feature", "view");
+    const canUpdateServingBoard = can("orders.serving_board_update.feature", "update");
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === roleName.trim().toLowerCase()
+            ) ?? null,
+        [roleName]
+    );
+    const servingBoardCapabilityKeys = useMemo(
+        () =>
+            new Set([
+                "orders.serving_board.feature",
+                "orders.serving_board_update.feature",
+                "orders.search.feature",
+                "orders.detail.feature",
+            ]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => servingBoardCapabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, servingBoardCapabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
 
     const { data = [], isLoading, isFetching, refetch, error } = useQuery<ServingBoardGroup[]>({
         queryKey: SERVING_BOARD_QUERY_KEY,
@@ -921,6 +958,10 @@ function ServingBoardPageContent() {
     );
 
     const handleUpdateItem = async (itemId: string, status: ServingStatus) => {
+        if (!canUpdateServingBoard) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้อัปเดตสถานะการเสิร์ฟ");
+            return;
+        }
         const previousGroups = queryClient.getQueryData<ServingBoardGroup[]>(SERVING_BOARD_QUERY_KEY);
         setItemLoadingIds((prev) => new Set(prev).add(itemId));
         queryClient.setQueryData<ServingBoardGroup[]>(
@@ -945,6 +986,10 @@ function ServingBoardPageContent() {
     };
 
     const handleUpdateGroup = async (groupId: string, status: ServingStatus) => {
+        if (!canUpdateServingBoard) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้อัปเดตสถานะการเสิร์ฟ");
+            return;
+        }
         const previousGroups = queryClient.getQueryData<ServingBoardGroup[]>(SERVING_BOARD_QUERY_KEY);
         setGroupLoadingIds((prev) => new Set(prev).add(groupId));
         queryClient.setQueryData<ServingBoardGroup[]>(
@@ -1064,6 +1109,52 @@ function ServingBoardPageContent() {
 
             {/* ═══ Sticky Header ═══ */}
             <div className="sb-hero">
+                {selectedBlueprint ? (
+                    <div style={{ marginBottom: 16 }}>
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`Order workflow baseline for ${selectedBlueprint.roleName}`}
+                            description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                        />
+                    </div>
+                ) : null}
+                <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+                    <Alert
+                        type="success"
+                        showIcon
+                        message="Serving Board Capability Matrix"
+                        description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} serving-board capabilities enabled.`}
+                    />
+                    <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))" }}>
+                        {capabilityMatrix.map((item) => (
+                            <div
+                                key={item.resourceKey}
+                                style={{
+                                    borderRadius: 16,
+                                    border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                    background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                    padding: 14,
+                                }}
+                            >
+                                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                                <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                                <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+                                    {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {!canUpdateServingBoard ? (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Serving updates are restricted by policy"
+                        description="This role can monitor the board, but item and batch serving-state changes remain locked until the serving-board update capability is granted."
+                    />
+                ) : null}
                 {/* Top Row: Title + Actions */}
                 <div className="sb-hero-top">
                     <div className="sb-title-section">
@@ -1090,6 +1181,7 @@ function ServingBoardPageContent() {
                             onClick={() => {
                                 void toggleSound();
                             }}
+                            disabled={!canViewServingBoard}
                             data-testid="serving-sound-toggle"
                             className="sb-action-btn"
                             style={{
@@ -1104,6 +1196,7 @@ function ServingBoardPageContent() {
                         <Button
                             icon={<ReloadOutlined style={{ fontSize: 16 }} />}
                             onClick={() => void refetch()}
+                            disabled={!canViewServingBoard}
                             loading={isFetching}
                             className="sb-action-btn sb-action-btn-refresh"
                         />
@@ -1111,7 +1204,7 @@ function ServingBoardPageContent() {
                 </div>
 
                 {/* Stats Toggle */}
-                <div className="sb-stats-toggle" onClick={() => setStatsExpanded((prev) => !prev)}>
+                <div className="sb-stats-toggle" onClick={() => canViewServingBoard && setStatsExpanded((prev) => !prev)}>
                     <div className="sb-stats-toggle-left">
                         <Badge count={stats.totalItems} style={{ backgroundColor: "#6366f1" }} />
                         <Text className="sb-stats-toggle-text">ภาพรวม</Text>
@@ -1141,8 +1234,9 @@ function ServingBoardPageContent() {
                             <Button
                                 key={category.value}
                                 type="text"
-                                onClick={() => setStatusCategory(category.value)}
+                                onClick={() => canViewServingBoard && setStatusCategory(category.value)}
                                 className={`sb-filter-btn sb-filter-btn-${category.value} ${active ? "active" : ""}`}
+                                disabled={!canViewServingBoard}
                                 data-status-category={category.value}
                             >
                                 {category.value === "pending" ? (
@@ -1164,6 +1258,7 @@ function ServingBoardPageContent() {
                         prefix={<SearchOutlined className="sb-search-icon" />}
                         placeholder="ค้นหา"
                         value={search}
+                        disabled={!canSearchOrders}
                         onChange={(event) => setSearch(event.target.value)}
                         className="sb-search-glass-input"
                     />
@@ -1223,13 +1318,13 @@ export default function ServingBoardPage() {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
-    if (!can("orders.page", "view")) {
+    if (!can("orders.serving_board.feature", "view")) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
         <RequireOpenShift>
-            <ServingBoardPageContent />
+            <ServingBoardPageContent can={can} roleName={String(user?.role ?? "")} />
         </RequireOpenShift>
     );
 }

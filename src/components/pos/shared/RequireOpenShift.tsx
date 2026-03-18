@@ -22,7 +22,7 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
     const router = useRouter();
     const { currentShift, loading: shiftLoading } = useShift();
     const { can, loading: permissionLoading } = useEffectivePermissions();
-    const canCreateShift = can("shifts.page", "create");
+    const canCreateShift = can("shifts.open.feature", "create");
     const [promptOpen, setPromptOpen] = useState(false);
 
     useEffect(() => {

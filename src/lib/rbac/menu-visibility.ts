@@ -43,9 +43,12 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
     "menu.module.pos": {
         explicitAnyOf: [{ resourceKey: "menu.module.pos", action: "view" }],
         fallbackAnyOf: [
-            { resourceKey: "orders.page", action: "view" },
+            { resourceKey: "orders.channels.feature", action: "view" },
+            { resourceKey: "orders.summary.feature", action: "view" },
+            { resourceKey: "orders.detail.feature", action: "access" },
             { resourceKey: "products.page", action: "view" },
             { resourceKey: "reports.sales.page", action: "view" },
+            { resourceKey: "shifts.page", action: "view" },
         ],
     },
     "menu.module.stock": {
@@ -84,26 +87,35 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
     },
     "menu.pos.sell": {
         explicitAnyOf: [{ resourceKey: "menu.pos.sell", action: "view" }],
-        fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
+        fallbackAnyOf: [
+            { resourceKey: "orders.channels.feature", action: "view" },
+            { resourceKey: "orders.channel_create.feature", action: "create" },
+            { resourceKey: "tables.page", action: "view" },
+        ],
     },
     "menu.pos.orders": {
         explicitAnyOf: [{ resourceKey: "menu.pos.orders", action: "view" }],
-        fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
+        fallbackAnyOf: [
+            { resourceKey: "orders.page", action: "view" },
+            { resourceKey: "orders.summary.feature", action: "view" },
+            { resourceKey: "orders.detail.feature", action: "access" },
+        ],
     },
     "menu.pos.list": {
-        fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
+        fallbackAnyOf: [{ resourceKey: "orders.serving_board.feature", action: "view" }],
     },
     "menu.pos.shift": {
         explicitAnyOf: [{ resourceKey: "menu.pos.shift", action: "view" }],
         fallbackAnyOf: [
             { resourceKey: "shifts.page", action: "view" },
-            { resourceKey: "shifts.page", action: "create" },
-            { resourceKey: "shifts.page", action: "update" },
+            { resourceKey: "shifts.open.feature", action: "create" },
+            { resourceKey: "shifts.close.feature", action: "update" },
         ],
     },
     "menu.pos.shiftHistory": {
         explicitAnyOf: [{ resourceKey: "menu.pos.shiftHistory", action: "view" }],
         fallbackAnyOf: [
+            { resourceKey: "shift_history.page", action: "view" },
             { resourceKey: "shifts.page", action: "view" },
             { resourceKey: "shifts.page", action: "create" },
             { resourceKey: "shifts.page", action: "update" },
@@ -137,6 +149,10 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
         explicitAnyOf: [{ resourceKey: "menu.pos.topping", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "topping.page", action: "view" }],
     },
+    "menu.pos.toppingGroup": {
+        explicitAnyOf: [{ resourceKey: "menu.pos.toppingGroup", action: "view" }],
+        fallbackAnyOf: [{ resourceKey: "topping_group.page", action: "view" }],
+    },
     "menu.pos.discounts": {
         explicitAnyOf: [{ resourceKey: "menu.pos.discounts", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "discounts.page", action: "view" }],
@@ -148,11 +164,11 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
     "menu.pos.settings": {
         explicitAnyOf: [{ resourceKey: "menu.pos.settings", action: "view" }],
         fallbackAnyOf: [
+            { resourceKey: "pos_settings.page", action: "view" },
             { resourceKey: "payment_accounts.page", action: "view" },
-            { resourceKey: "shop_profile.page", action: "view" },
-            { resourceKey: "shop_profile.page", action: "update" },
-            { resourceKey: "print_settings.page", action: "view" },
-            { resourceKey: "print_settings.page", action: "update" },
+            { resourceKey: "payment_accounts.manager.feature", action: "access" },
+            { resourceKey: "shop_profile.identity.feature", action: "update" },
+            { resourceKey: "shop_profile.contact.feature", action: "update" },
         ],
     },
 

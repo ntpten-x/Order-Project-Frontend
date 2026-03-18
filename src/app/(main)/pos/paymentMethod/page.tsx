@@ -1,17 +1,17 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
+import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
     CreditCardOutlined,
+    DeleteOutlined,
+    EditOutlined,
     PlusOutlined,
     ReloadOutlined,
-    EditOutlined,
-    DeleteOutlined,
     WalletOutlined,
 } from '@ant-design/icons';
-import { PaymentMethod } from '../../../../types/api/pos/paymentMethod';
 import { useRouter } from 'next/navigation';
+import { PaymentMethod } from '../../../../types/api/pos/paymentMethod';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
@@ -34,30 +34,27 @@ import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissio
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
+import {
+    PAYMENT_METHOD_CAPABILITIES,
+    PAYMENT_METHOD_ROLE_BLUEPRINT,
+} from '../../../../lib/rbac/payment-method-capabilities';
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-type PaymentMethodCachePayload = {
-    items: PaymentMethod[];
-    total: number;
-};
+type PaymentMethodCachePayload = { items: PaymentMethod[]; total: number };
 
-const PAYMENT_METHOD_CACHE_KEY = 'pos:payment-method:list:default-v3';
+const PAYMENT_METHOD_CACHE_KEY = 'pos:payment-method:list:default-v4';
 const PAYMENT_METHOD_CACHE_TTL_MS = 60 * 1000;
 
 const formatDate = (raw: string | Date) => {
     const date = new Date(raw);
     if (Number.isNaN(date.getTime())) return '-';
-    return new Intl.DateTimeFormat('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(date);
+    return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 };
 
 const getPaymentMethodVisual = (paymentMethod: PaymentMethod) => {
     const code = paymentMethod.payment_method_name.toLowerCase();
-
     if (code.includes('cash')) {
         return {
             icon: <WalletOutlined style={{ fontSize: 22, color: paymentMethod.is_active ? '#4d7c0f' : '#94a3b8' }} />,
@@ -81,27 +78,29 @@ const getPaymentMethodVisual = (paymentMethod: PaymentMethod) => {
     };
 };
 
-interface PaymentMethodCardProps {
+type PaymentMethodCardProps = {
     paymentMethod: PaymentMethod;
-    canUpdate: boolean;
+    canOpenManager: boolean;
+    canToggleStatus: boolean;
     canDelete: boolean;
     onEdit: (paymentMethod: PaymentMethod) => void;
     onDelete: (paymentMethod: PaymentMethod) => void;
     onToggleActive: (paymentMethod: PaymentMethod, next: boolean) => void;
     updatingStatusId: string | null;
     deletingId: string | null;
-}
+};
 
-const PaymentMethodCard = ({
+function PaymentMethodCard({
     paymentMethod,
-    canUpdate,
+    canOpenManager,
+    canToggleStatus,
     canDelete,
     onEdit,
     onDelete,
     onToggleActive,
     updatingStatusId,
     deletingId,
-}: PaymentMethodCardProps) => {
+}: PaymentMethodCardProps) {
     const visual = getPaymentMethodVisual(paymentMethod);
 
     return (
@@ -110,10 +109,10 @@ const PaymentMethodCard = ({
             style={{
                 ...pageStyles.paymentMethodCard(paymentMethod.is_active),
                 borderRadius: 16,
-                cursor: canUpdate ? 'pointer' : 'default',
+                cursor: canOpenManager ? 'pointer' : 'default',
             }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenManager) return;
                 onEdit(paymentMethod);
             }}
         >
@@ -132,7 +131,6 @@ const PaymentMethodCard = ({
                 >
                     {visual.icon}
                 </div>
-
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                         <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: paymentMethod.display_name }}>
@@ -141,25 +139,30 @@ const PaymentMethodCard = ({
                         <Tag color={paymentMethod.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
                             {paymentMethod.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
+                        <Tag color={visual.tagColor} style={{ borderRadius: 999 }}>
+                            {paymentMethod.payment_method_name}
+                        </Tag>
                     </div>
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+                        ชื่อระบบ {paymentMethod.payment_method_name}
+                    </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(paymentMethod.create_date)}
                     </Text>
                 </div>
-
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <Switch
                         size="small"
                         checked={paymentMethod.is_active}
                         loading={updatingStatusId === paymentMethod.id}
-                        disabled={!canUpdate || deletingId === paymentMethod.id}
+                        disabled={!canToggleStatus || deletingId === paymentMethod.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
-                            if (!canUpdate) return;
+                            if (!canToggleStatus) return;
                             onToggleActive(paymentMethod, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenManager ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
@@ -167,13 +170,7 @@ const PaymentMethodCard = ({
                                 event.stopPropagation();
                                 onEdit(paymentMethod);
                             }}
-                            style={{
-                                borderRadius: 10,
-                                color: '#047857',
-                                background: '#d1fae5',
-                                width: 36,
-                                height: 36,
-                            }}
+                            style={{ borderRadius: 10, color: '#047857', background: '#d1fae5', width: 36, height: 36 }}
                         />
                     ) : null}
                     {canDelete ? (
@@ -186,19 +183,14 @@ const PaymentMethodCard = ({
                                 event.stopPropagation();
                                 onDelete(paymentMethod);
                             }}
-                            style={{
-                                borderRadius: 10,
-                                background: '#fef2f2',
-                                width: 36,
-                                height: 36,
-                            }}
+                            style={{ borderRadius: 10, background: '#fef2f2', width: 36, height: 36 }}
                         />
                     ) : null}
                 </div>
             </div>
         </div>
     );
-};
+}
 
 export default function PaymentMethodPage() {
     const router = useRouter();
@@ -231,21 +223,43 @@ export default function PaymentMethodPage() {
         defaultPageSize: 10,
         defaultFilters: { status: 'all' },
     });
-
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreatePaymentMethod = can('payment_method.page', 'create');
-    const canUpdatePaymentMethod = can('payment_method.page', 'update');
-    const canDeletePaymentMethod = can('payment_method.page', 'delete');
+    const canViewPaymentMethod = can('payment_method.page', 'view');
+    const canSearchPaymentMethod = can('payment_method.search.feature', 'view');
+    const canFilterPaymentMethod = can('payment_method.filter.feature', 'view');
+    const canOpenPaymentMethodManager = can('payment_method.manager.feature', 'access');
+    const canCreatePaymentMethod =
+        can('payment_method.page', 'create') &&
+        can('payment_method.create.feature', 'create') &&
+        canOpenPaymentMethodManager;
+    const canEditPaymentMethodCatalog =
+        can('payment_method.page', 'update') &&
+        can('payment_method.catalog.feature', 'update') &&
+        canOpenPaymentMethodManager;
+    const canTogglePaymentMethodStatus =
+        can('payment_method.page', 'update') &&
+        can('payment_method.status.feature', 'update') &&
+        canOpenPaymentMethodManager;
+    const canDeletePaymentMethod =
+        can('payment_method.page', 'delete') &&
+        can('payment_method.delete.feature', 'delete') &&
+        canOpenPaymentMethodManager;
+    const canOpenPaymentMethodEditWorkspace =
+        canOpenPaymentMethodManager && (canEditPaymentMethodCatalog || canTogglePaymentMethodStatus || canDeletePaymentMethod);
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => PAYMENT_METHOD_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () => PAYMENT_METHOD_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
     const isDefaultListView = useMemo(
-        () =>
-            page === 1 &&
-            pageSize === 10 &&
-            createdSort === DEFAULT_CREATED_SORT &&
-            !debouncedSearch.trim() &&
-            filters.status === 'all',
+        () => page === 1 && pageSize === 10 && createdSort === DEFAULT_CREATED_SORT && !debouncedSearch.trim() && filters.status === 'all',
         [createdSort, debouncedSearch, filters.status, page, pageSize]
     );
 
@@ -253,21 +267,15 @@ export default function PaymentMethodPage() {
         void getCsrfTokenCached();
     }, []);
 
-    useEffect(() => {
-        return () => {
-            requestRef.current?.abort();
-        };
+    useEffect(() => () => {
+        requestRef.current?.abort();
     }, []);
 
     useEffect(() => {
-        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) {
-            return;
-        }
-
+        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) return;
         cacheHydratedRef.current = true;
         const cached = readCache<PaymentMethodCachePayload>(PAYMENT_METHOD_CACHE_KEY, PAYMENT_METHOD_CACHE_TTL_MS);
         if (!cached) return;
-
         setPaymentMethods(cached.items || []);
         setTotal(cached.total || 0);
         setHasCachedSnapshot(true);
@@ -276,64 +284,68 @@ export default function PaymentMethodPage() {
 
     useEffect(() => {
         if (!isDefaultListView || loading) return;
-        writeCache<PaymentMethodCachePayload>(PAYMENT_METHOD_CACHE_KEY, {
-            items: paymentMethods,
-            total,
-        });
+        writeCache<PaymentMethodCachePayload>(PAYMENT_METHOD_CACHE_KEY, { items: paymentMethods, total });
     }, [isDefaultListView, loading, paymentMethods, total]);
 
-    const fetchPaymentMethods = useCallback(
-        async (options?: { background?: boolean }) => {
-            if (!isAuthorized) return;
-
-            requestRef.current?.abort();
-            const controller = new AbortController();
-            requestRef.current = controller;
-            const background = options?.background === true;
-
-            if (background) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
-            setError(null);
-
-            try {
-                const params = getQueryParams();
-                const response = await fetch(`/api/pos/paymentMethod?${params.toString()}`, {
-                    cache: 'no-store',
-                    signal: controller.signal,
-                });
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้');
-                }
-
-                const payload = await response.json();
-                if (controller.signal.aborted) return;
-
-                setPaymentMethods(payload.data || []);
-                setTotal(payload.total || 0);
-            } catch (fetchError) {
-                if (controller.signal.aborted) return;
-                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้'));
-            } finally {
-                if (requestRef.current === controller) {
-                    requestRef.current = null;
-                }
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                    setRefreshing(false);
-                }
-            }
-        },
-        [getQueryParams, isAuthorized, setTotal]
-    );
+    useEffect(() => {
+        if (!canSearchPaymentMethod && searchText) setSearchText('');
+    }, [canSearchPaymentMethod, searchText, setSearchText]);
 
     useEffect(() => {
-        if (isUrlReady && isAuthorized) {
-            void fetchPaymentMethods({ background: hasCachedSnapshot });
+        if (!canFilterPaymentMethod && filters.status !== 'all') updateFilter('status', 'all');
+    }, [canFilterPaymentMethod, filters.status, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterPaymentMethod && createdSort !== DEFAULT_CREATED_SORT) setCreatedSort(DEFAULT_CREATED_SORT);
+    }, [canFilterPaymentMethod, createdSort, setCreatedSort]);
+
+    const fetchPaymentMethods = useCallback(async (options?: { background?: boolean }) => {
+        if (!isAuthorized) return;
+
+        requestRef.current?.abort();
+        const controller = new AbortController();
+        requestRef.current = controller;
+        const background = options?.background === true;
+
+        if (background) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
+
+        try {
+            const params = getQueryParams();
+            if (!canSearchPaymentMethod) params.delete('q');
+            if (!canFilterPaymentMethod) {
+                params.delete('status');
+                params.delete('sort_created');
+            }
+
+            const response = await fetch(`/api/pos/paymentMethod?${params.toString()}`, {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้');
+            }
+
+            const payload = await response.json();
+            if (controller.signal.aborted) return;
+            setPaymentMethods(payload.data || []);
+            setTotal(payload.total || 0);
+        } catch (fetchError) {
+            if (controller.signal.aborted) return;
+            setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้'));
+        } finally {
+            if (requestRef.current === controller) requestRef.current = null;
+            if (!controller.signal.aborted) {
+                setLoading(false);
+                setRefreshing(false);
+            }
         }
+    }, [canFilterPaymentMethod, canSearchPaymentMethod, getQueryParams, isAuthorized, setTotal]);
+
+    useEffect(() => {
+        if (isUrlReady && isAuthorized) void fetchPaymentMethods({ background: hasCachedSnapshot });
     }, [fetchPaymentMethods, hasCachedSnapshot, isAuthorized, isUrlReady]);
 
     useRealtimeRefresh({
@@ -360,7 +372,7 @@ export default function PaymentMethodPage() {
     };
 
     const handleEdit = (paymentMethod: PaymentMethod) => {
-        if (!canUpdatePaymentMethod) {
+        if (!canOpenPaymentMethodEditWorkspace) {
             message.warning('คุณไม่มีสิทธิ์แก้ไขวิธีการชำระเงิน');
             return;
         }
@@ -381,30 +393,24 @@ export default function PaymentMethodPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
-            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            icon: <DeleteOutlined style={{ color: '#ef4444' }} />,
             onOk: async () => {
                 setDeletingId(paymentMethod.id);
                 try {
                     const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/paymentMethod/delete/${paymentMethod.id}`, {
                         method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken,
-                        },
+                        headers: { 'X-CSRF-Token': csrfToken },
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
                         throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบวิธีการชำระเงินได้');
                     }
-
                     const shouldMoveToPreviousPage = page > 1 && paymentMethods.length === 1;
                     setPaymentMethods((prev) => prev.filter((item) => item.id !== paymentMethod.id));
                     setTotal((prev) => Math.max(prev - 1, 0));
-                    if (shouldMoveToPreviousPage) {
-                        setPage(page - 1);
-                    } else {
-                        void fetchPaymentMethods({ background: true });
-                    }
+                    if (shouldMoveToPreviousPage) setPage(page - 1);
+                    else void fetchPaymentMethods({ background: true });
                     message.success(`ลบวิธีการชำระเงิน "${paymentMethod.display_name}" สำเร็จ`);
                 } catch (deleteError) {
                     message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบวิธีการชำระเงินได้');
@@ -416,7 +422,7 @@ export default function PaymentMethodPage() {
     };
 
     const handleToggleActive = async (paymentMethod: PaymentMethod, next: boolean) => {
-        if (!canUpdatePaymentMethod) {
+        if (!canTogglePaymentMethodStatus) {
             message.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะวิธีการชำระเงิน');
             return;
         }
@@ -432,12 +438,10 @@ export default function PaymentMethodPage() {
                 },
                 body: JSON.stringify({ is_active: next }),
             });
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะวิธีการชำระเงินได้');
             }
-
             const updated = await response.json();
             setPaymentMethods((prev) => prev.map((item) => (item.id === paymentMethod.id ? updated : item)));
             void fetchPaymentMethods({ background: true });
@@ -449,46 +453,73 @@ export default function PaymentMethodPage() {
         }
     };
 
-    if (isChecking) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
-    }
-
-    if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
-    }
-
-    if (permissionLoading) {
-        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
-    }
+    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
 
     return (
         <div className="payment-method-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
-
             <UIPageHeader
                 title="วิธีการชำระเงิน"
                 icon={<CreditCardOutlined />}
-                actions={
+                actions={(
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchPaymentMethods({ background: paymentMethods.length > 0 })}>
-                        </Button>
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchPaymentMethods({ background: paymentMethods.length > 0 })} />
                         {canCreatePaymentMethod ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มวิธีการชำระเงิน
                             </Button>
                         ) : null}
                     </Space>
-                }
+                )}
             />
-
             <PageContainer>
                 <PageStack>
+                    <Alert
+                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                        showIcon
+                        message={selectedRoleBlueprint?.title || 'Payment method permissions'}
+                        description={
+                            selectedRoleBlueprint
+                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                : canViewPaymentMethod
+                                    ? 'บัญชีนี้สามารถเปิดหน้าวิธีชำระเงินได้'
+                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าวิธีชำระเงิน'
+                        }
+                    />
+                    <PageSection
+                        title="Payment Method Capability Matrix"
+                        extra={<Tag color="green">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
+                    >
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 18,
+                                        padding: 16,
+                                        border: item.enabled ? '1px solid rgba(5, 150, 105, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
+                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #ecfdf5 100%)' : '#ffffff',
+                                        boxShadow: item.enabled ? '0 14px 32px rgba(5, 150, 105, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
+                                    }}
+                                >
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                        <Space wrap>
+                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
+                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
+                                                {item.securityLevel}
+                                            </Tag>
+                                        </Space>
+                                        <Text strong>{item.title}</Text>
+                                        <Text type="secondary">{item.description}</Text>
+                                    </Space>
+                                </div>
+                            ))}
+                        </div>
+                    </PageSection>
                     <SearchBar>
-                        <SearchInput
-                            placeholder="ค้นหา"
-                            value={searchText}
-                            onChange={setSearchText}
-                        />
+                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} disabled={!canSearchPaymentMethod} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
@@ -501,6 +532,7 @@ export default function PaymentMethodPage() {
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterPaymentMethod}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เรียงลำดับ"
@@ -511,36 +543,44 @@ export default function PaymentMethodPage() {
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterPaymentMethod}
                                 />
                             </Space>
                         </Space>
                     </SearchBar>
-
+                    {!canSearchPaymentMethod || !canFilterPaymentMethod ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="บาง control ถูกล็อกตามสิทธิ์"
+                            description={`Search ${canSearchPaymentMethod ? 'พร้อมใช้งาน' : 'ถูกปิด'} | Filter/Sort ${canFilterPaymentMethod ? 'พร้อมใช้งาน' : 'ถูกปิด'}`}
+                        />
+                    ) : null}
                     <PageSection
                         title="รายการวิธีการชำระเงิน"
-                        extra={
+                        extra={(
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                                <Tag color={canCreatePaymentMethod ? 'green' : 'default'}>create</Tag>
+                                <Tag color={canEditPaymentMethodCatalog ? 'green' : 'default'}>catalog</Tag>
+                                <Tag color={canTogglePaymentMethodStatus ? 'green' : 'default'}>status</Tag>
+                                <Tag color={canDeletePaymentMethod ? 'red' : 'default'}>delete</Tag>
                             </Space>
-                        }
+                        )}
                     >
                         {loading && paymentMethods.length === 0 ? (
                             <PageState status="loading" title="กำลังโหลดข้อมูลวิธีการชำระเงิน..." />
                         ) : error && paymentMethods.length === 0 ? (
-                            <PageState
-                                status="error"
-                                title="โหลดข้อมูลวิธีการชำระเงินไม่สำเร็จ"
-                                error={error}
-                                onRetry={() => void fetchPaymentMethods()}
-                            />
+                            <PageState status="error" title="โหลดข้อมูลวิธีการชำระเงินไม่สำเร็จ" error={error} onRetry={() => void fetchPaymentMethods()} />
                         ) : paymentMethods.length > 0 ? (
                             <Space direction="vertical" size={16} style={{ width: '100%' }}>
                                 {paymentMethods.map((paymentMethod) => (
                                     <PaymentMethodCard
                                         key={paymentMethod.id}
                                         paymentMethod={paymentMethod}
-                                        canUpdate={canUpdatePaymentMethod}
+                                        canOpenManager={canOpenPaymentMethodEditWorkspace}
+                                        canToggleStatus={canTogglePaymentMethodStatus}
                                         canDelete={canDeletePaymentMethod}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
@@ -549,7 +589,6 @@ export default function PaymentMethodPage() {
                                         deletingId={deletingId}
                                     />
                                 ))}
-
                                 <div style={{ marginTop: 12 }}>
                                     <ListPagination
                                         page={page}
@@ -568,7 +607,9 @@ export default function PaymentMethodPage() {
                                 description={
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาอีกครั้ง'
-                                        : 'เพิ่มช่องทางชำระเงินแรกเพื่อให้หน้า POS พร้อมใช้งานจริง'
+                                        : canCreatePaymentMethod
+                                            ? 'เพิ่มช่องทางชำระเงินแรกเพื่อให้หน้า POS พร้อมใช้งานจริง'
+                                            : 'บัญชีนี้ดูรายการวิธีชำระเงินได้ แต่ยังไม่มีสิทธิ์สร้างหรือแก้ไขกติกา'
                                 }
                             />
                         )}

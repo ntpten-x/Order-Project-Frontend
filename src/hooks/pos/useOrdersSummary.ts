@@ -19,6 +19,7 @@ interface UseOrdersSummaryParams {
     type?: string;
     query?: string;
     sortCreated?: "old" | "new";
+    enabled?: boolean;
 }
 
 export function useOrdersSummary({
@@ -28,6 +29,7 @@ export function useOrdersSummary({
     type,
     query,
     sortCreated = "old",
+    enabled = true,
 }: UseOrdersSummaryParams) {
     const { isConnected } = useContext(SocketContext);
     const queryKey = ['ordersSummary', page, limit, status || 'all', type || 'all', query || '', sortCreated] as const;
@@ -37,6 +39,7 @@ export function useOrdersSummary({
         queryFn: async () => {
             return ordersService.getAllSummary(undefined, page, limit, status, type, query, sortCreated);
         },
+        enabled,
         placeholderData: keepPreviousData,
         staleTime: isConnected ? 45_000 : 7_500,
         refetchOnWindowFocus: false,

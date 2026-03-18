@@ -1,16 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
+import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
     CarOutlined,
+    DeleteOutlined,
+    EditOutlined,
     PlusOutlined,
     ReloadOutlined,
-    EditOutlined,
-    DeleteOutlined,
 } from '@ant-design/icons';
-import { Delivery } from '../../../../types/api/pos/delivery';
 import { useRouter } from 'next/navigation';
+import { Delivery } from '../../../../types/api/pos/delivery';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
@@ -36,6 +36,7 @@ import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissio
 import SmartAvatar from '../../../../components/ui/image/SmartAvatar';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { DELIVERY_CAPABILITIES, DELIVERY_ROLE_BLUEPRINT } from '../../../../lib/rbac/delivery-capabilities';
 
 const { Text } = Typography;
 
@@ -50,7 +51,8 @@ const DELIVERY_CACHE_TTL_MS = 60 * 1000;
 
 interface DeliveryCardProps {
     delivery: Delivery;
-    canUpdate: boolean;
+    canOpenManager: boolean;
+    canToggleStatus: boolean;
     canDelete: boolean;
     onEdit: (delivery: Delivery) => void;
     onDelete: (delivery: Delivery) => void;
@@ -70,7 +72,8 @@ const formatDate = (raw: string | Date) => {
 
 const DeliveryCard = ({
     delivery,
-    canUpdate,
+    canOpenManager,
+    canToggleStatus,
     canDelete,
     onEdit,
     onDelete,
@@ -86,10 +89,10 @@ const DeliveryCard = ({
             style={{
                 ...pageStyles.deliveryCard(delivery.is_active),
                 borderRadius: 18,
-                cursor: canUpdate ? 'pointer' : 'default',
+                cursor: canOpenManager ? 'pointer' : 'default',
             }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenManager) return;
                 onEdit(delivery);
             }}
         >
@@ -114,14 +117,7 @@ const DeliveryCard = ({
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                        <Text
-                            strong
-                            style={{
-                                fontSize: 16,
-                                color: '#0f172a',
-                            }}
-                            ellipsis={{ tooltip: delivery.delivery_name }}
-                        >
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: delivery.delivery_name }}>
                             {delivery.delivery_name}
                         </Text>
                         <Tag color={delivery.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
@@ -143,14 +139,14 @@ const DeliveryCard = ({
                         size="small"
                         checked={delivery.is_active}
                         loading={updatingStatusId === delivery.id}
-                        disabled={!canUpdate || deletingId === delivery.id}
+                        disabled={!canToggleStatus || deletingId === delivery.id}
                         onClick={(checked, event) => {
-                            if (!canUpdate) return;
+                            if (!canToggleStatus) return;
                             event?.stopPropagation();
                             onToggleActive(delivery, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenManager ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
@@ -230,9 +226,28 @@ export default function DeliveryPage() {
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
 
-    const canCreateDelivery = can('delivery.page', 'create');
-    const canUpdateDelivery = can('delivery.page', 'update');
-    const canDeleteDelivery = can('delivery.page', 'delete');
+    const canViewDelivery = can('delivery.page', 'view');
+    const canSearchDelivery = can('delivery.search.feature', 'view');
+    const canFilterDelivery = can('delivery.filter.feature', 'view');
+    const canOpenDeliveryManager = can('delivery.manager.feature', 'access');
+    const canCreateDelivery = can('delivery.page', 'create') && can('delivery.create.feature', 'create') && canOpenDeliveryManager;
+    const canEditDelivery = can('delivery.page', 'update') && can('delivery.edit.feature', 'update') && canOpenDeliveryManager;
+    const canToggleDeliveryStatus = can('delivery.page', 'update') && can('delivery.status.feature', 'update') && canOpenDeliveryManager;
+    const canDeleteDelivery = can('delivery.page', 'delete') && can('delivery.delete.feature', 'delete') && canOpenDeliveryManager;
+    const canOpenDeliveryEditWorkspace = canOpenDeliveryManager && (canEditDelivery || canToggleDeliveryStatus || canDeleteDelivery);
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => DELIVERY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            DELIVERY_CAPABILITIES.map((item) => ({
+                ...item,
+                enabled: can(item.resourceKey, item.action),
+            })),
+        [can]
+    );
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -276,6 +291,24 @@ export default function DeliveryPage() {
         });
     }, [deliveries, isDefaultListView, loading, total]);
 
+    useEffect(() => {
+        if (!canSearchDelivery && searchText) {
+            setSearchText('');
+        }
+    }, [canSearchDelivery, searchText, setSearchText]);
+
+    useEffect(() => {
+        if (!canFilterDelivery && filters.status !== 'all') {
+            updateFilter('status', 'all');
+        }
+    }, [canFilterDelivery, filters.status, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterDelivery && createdSort !== DEFAULT_CREATED_SORT) {
+            setCreatedSort(DEFAULT_CREATED_SORT);
+        }
+    }, [canFilterDelivery, createdSort, setCreatedSort]);
+
     const fetchDeliveries = useCallback(
         async (options?: { background?: boolean }) => {
             if (!isAuthorized) return;
@@ -294,6 +327,14 @@ export default function DeliveryPage() {
 
             try {
                 const params = getQueryParams();
+                if (!canSearchDelivery) {
+                    params.delete('q');
+                }
+                if (!canFilterDelivery) {
+                    params.delete('status');
+                    params.delete('sort_created');
+                }
+
                 const response = await fetch(`/api/pos/delivery?${params.toString()}`, {
                     cache: 'no-store',
                     signal: controller.signal,
@@ -322,7 +363,7 @@ export default function DeliveryPage() {
                 }
             }
         },
-        [getQueryParams, isAuthorized, setTotal]
+        [canFilterDelivery, canSearchDelivery, getQueryParams, isAuthorized, setTotal]
     );
 
     useEffect(() => {
@@ -355,7 +396,7 @@ export default function DeliveryPage() {
     };
 
     const handleEdit = (delivery: Delivery) => {
-        if (!canUpdateDelivery) {
+        if (!canOpenDeliveryEditWorkspace) {
             message.error('คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง');
             return;
         }
@@ -414,8 +455,8 @@ export default function DeliveryPage() {
     };
 
     const handleToggleActive = async (delivery: Delivery, next: boolean) => {
-        if (!canUpdateDelivery) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง');
+        if (!canToggleDeliveryStatus) {
+            message.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะช่องทางจัดส่ง');
             return;
         }
 
@@ -467,8 +508,7 @@ export default function DeliveryPage() {
                 icon={<CarOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchDeliveries({ background: deliveries.length > 0 })}>
-                        </Button>
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchDeliveries({ background: deliveries.length > 0 })} />
                         {canCreateDelivery ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มช่องทางจัดส่ง
@@ -480,11 +520,62 @@ export default function DeliveryPage() {
 
             <PageContainer>
                 <PageStack>
+                    <Alert
+                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                        showIcon
+                        message={selectedRoleBlueprint?.title || 'Delivery permissions'}
+                        description={
+                            selectedRoleBlueprint
+                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                : canViewDelivery
+                                    ? 'บัญชีนี้สามารถเปิดหน้าจัดการเดลิเวอรี่ได้'
+                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าจัดการเดลิเวอรี่'
+                        }
+                    />
+
+                    <PageSection
+                        title="Delivery Capability Matrix"
+                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
+                    >
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                                gap: 12,
+                            }}
+                        >
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 18,
+                                        padding: 16,
+                                        border: item.enabled ? '1px solid rgba(8, 145, 178, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
+                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #ecfeff 100%)' : '#ffffff',
+                                        boxShadow: item.enabled ? '0 14px 32px rgba(8, 145, 178, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
+                                    }}
+                                >
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                        <Space wrap>
+                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
+                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
+                                                {item.securityLevel}
+                                            </Tag>
+                                        </Space>
+                                        <Text strong>{item.title}</Text>
+                                        <Text type="secondary">{item.description}</Text>
+                                    </Space>
+                                </div>
+                            ))}
+                        </div>
+                    </PageSection>
+
                     <SearchBar>
                         <SearchInput
                             placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
+                            disabled={!canSearchDelivery}
                         />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
@@ -498,6 +589,7 @@ export default function DeliveryPage() {
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 150 }}
+                                    disabled={!canFilterDelivery}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เลือกรูปแบบการเรียงลำดับ"
@@ -508,10 +600,20 @@ export default function DeliveryPage() {
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     style={{ minWidth: 150 }}
+                                    disabled={!canFilterDelivery}
                                 />
                             </Space>
                         </Space>
                     </SearchBar>
+
+                    {!canSearchDelivery || !canFilterDelivery ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="บาง control ถูกล็อกตามสิทธิ์"
+                            description={`Search ${canSearchDelivery ? 'พร้อมใช้งาน' : 'ถูกปิด'} | Filter/Sort ${canFilterDelivery ? 'พร้อมใช้งาน' : 'ถูกปิด'}`}
+                        />
+                    ) : null}
 
                     <PageSection
                         title="รายการช่องทางจัดส่ง"
@@ -519,6 +621,10 @@ export default function DeliveryPage() {
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                                <Tag color={canCreateDelivery ? 'green' : 'default'}>create</Tag>
+                                <Tag color={canEditDelivery ? 'green' : 'default'}>edit</Tag>
+                                <Tag color={canToggleDeliveryStatus ? 'green' : 'default'}>status</Tag>
+                                <Tag color={canDeleteDelivery ? 'red' : 'default'}>delete</Tag>
                             </Space>
                         }
                     >
@@ -537,7 +643,8 @@ export default function DeliveryPage() {
                                     <DeliveryCard
                                         key={delivery.id}
                                         delivery={delivery}
-                                        canUpdate={canUpdateDelivery}
+                                        canOpenManager={canOpenDeliveryEditWorkspace}
+                                        canToggleStatus={canToggleDeliveryStatus}
                                         canDelete={canDeleteDelivery}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
@@ -565,7 +672,9 @@ export default function DeliveryPage() {
                                 description={
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองเพื่อค้นหารายการที่ต้องการ'
-                                        : 'เพิ่มผู้ให้บริการเดลิเวอรีเพื่อให้พนักงานเลือกใช้งานได้ทันที'
+                                        : canCreateDelivery
+                                            ? 'เพิ่มผู้ให้บริการเดลิเวอรี่เพื่อให้พนักงานเลือกใช้งานได้ทันที'
+                                            : 'บัญชีนี้ดูรายการเดลิเวอรี่ได้ แต่ยังไม่มีสิทธิ์สร้าง provider ใหม่'
                                 }
                             />
                         )}

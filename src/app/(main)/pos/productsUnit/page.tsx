@@ -1,16 +1,16 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
+import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
-    UnorderedListOutlined,
+    DeleteOutlined,
+    EditOutlined,
     PlusOutlined,
     ReloadOutlined,
-    EditOutlined,
-    DeleteOutlined,
+    UnorderedListOutlined,
 } from '@ant-design/icons';
-import { ProductsUnit } from '../../../../types/api/pos/productsUnit';
 import { useRouter } from 'next/navigation';
+import { ProductsUnit } from '../../../../types/api/pos/productsUnit';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
@@ -33,58 +33,58 @@ import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissio
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
+import {
+    PRODUCTS_UNIT_CAPABILITIES,
+    PRODUCTS_UNIT_ROLE_BLUEPRINT,
+} from '../../../../lib/rbac/products-unit-capabilities';
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-type ProductsUnitCachePayload = {
-    items: ProductsUnit[];
-    total: number;
-};
+type ProductsUnitCachePayload = { items: ProductsUnit[]; total: number };
 
-const PRODUCTS_UNIT_CACHE_KEY = 'pos:products-unit:list:default-v1';
+const PRODUCTS_UNIT_CACHE_KEY = 'pos:products-unit:list:default-v2';
 const PRODUCTS_UNIT_CACHE_TTL_MS = 60 * 1000;
 
-interface UnitCardProps {
+const formatDate = (raw: string | Date) => {
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
+};
+
+type UnitCardProps = {
     unit: ProductsUnit;
-    canUpdate: boolean;
+    canOpenManager: boolean;
+    canToggleStatus: boolean;
     canDelete: boolean;
     onEdit: (unit: ProductsUnit) => void;
     onDelete: (unit: ProductsUnit) => void;
     onToggleActive: (unit: ProductsUnit, next: boolean) => void;
     updatingStatusId: string | null;
     deletingId: string | null;
-}
-
-const formatDate = (raw: string | Date) => {
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return '-';
-    return new Intl.DateTimeFormat('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(date);
 };
 
-const UnitCard = ({
+function UnitCard({
     unit,
-    canUpdate,
+    canOpenManager,
+    canToggleStatus,
     canDelete,
     onEdit,
     onDelete,
     onToggleActive,
     updatingStatusId,
     deletingId,
-}: UnitCardProps) => {
+}: UnitCardProps) {
     return (
         <div
             className="unit-card"
             style={{
                 ...pageStyles.unitCard(unit.is_active),
                 borderRadius: 16,
-                cursor: canUpdate ? 'pointer' : 'default',
+                cursor: canOpenManager ? 'pointer' : 'default',
             }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenManager) return;
                 onEdit(unit);
             }}
         >
@@ -101,7 +101,6 @@ const UnitCard = ({
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: unit.is_active ? '0 4px 10px rgba(14, 116, 144, 0.18)' : 'none',
                     }}
                 >
                     <UnorderedListOutlined
@@ -111,7 +110,6 @@ const UnitCard = ({
                         }}
                     />
                 </div>
-
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
                         <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: unit.display_name }}>
@@ -125,34 +123,27 @@ const UnitCard = ({
                         อัปเดตล่าสุด {formatDate(unit.update_date)}
                     </Text>
                 </div>
-
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <Switch
                         size="small"
                         checked={unit.is_active}
                         loading={updatingStatusId === unit.id}
-                        disabled={!canUpdate || deletingId === unit.id}
+                        disabled={!canToggleStatus || deletingId === unit.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
-                            if (!canUpdate) return;
+                            if (!canToggleStatus) return;
                             onToggleActive(unit, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenManager ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onEdit(unit);
                             }}
-                            style={{
-                                borderRadius: 10,
-                                color: '#0e7490',
-                                background: '#ecfeff',
-                                width: 36,
-                                height: 36,
-                            }}
+                            style={{ borderRadius: 10, color: '#0e7490', background: '#ecfeff', width: 36, height: 36 }}
                         />
                     ) : null}
                     {canDelete ? (
@@ -161,23 +152,18 @@ const UnitCard = ({
                             danger
                             loading={deletingId === unit.id}
                             icon={deletingId === unit.id ? undefined : <DeleteOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onDelete(unit);
                             }}
-                            style={{
-                                borderRadius: 10,
-                                background: '#fef2f2',
-                                width: 36,
-                                height: 36,
-                            }}
+                            style={{ borderRadius: 10, background: '#fef2f2', width: 36, height: 36 }}
                         />
                     ) : null}
                 </div>
             </div>
         </div>
     );
-};
+}
 
 export default function ProductsUnitPage() {
     const router = useRouter();
@@ -210,43 +196,59 @@ export default function ProductsUnitPage() {
         defaultPageSize: 10,
         defaultFilters: { status: 'all' },
     });
-
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateUnits = can('products_unit.page', 'create');
-    const canUpdateUnits = can('products_unit.page', 'update');
-    const canDeleteUnits = can('products_unit.page', 'delete');
+    const canViewProductsUnit = can('products_unit.page', 'view');
+    const canSearchProductsUnit = can('products_unit.search.feature', 'view');
+    const canFilterProductsUnit = can('products_unit.filter.feature', 'view');
+    const canOpenProductsUnitManager = can('products_unit.manager.feature', 'access');
+    const canCreateProductsUnit =
+        can('products_unit.page', 'create') &&
+        can('products_unit.create.feature', 'create') &&
+        canOpenProductsUnitManager;
+    const canEditProductsUnit =
+        can('products_unit.page', 'update') &&
+        can('products_unit.edit.feature', 'update') &&
+        canOpenProductsUnitManager;
+    const canToggleProductsUnitStatus =
+        can('products_unit.page', 'update') &&
+        can('products_unit.status.feature', 'update') &&
+        canOpenProductsUnitManager;
+    const canDeleteProductsUnit =
+        can('products_unit.page', 'delete') &&
+        can('products_unit.delete.feature', 'delete') &&
+        canOpenProductsUnitManager;
+    const canOpenProductsUnitEditWorkspace =
+        canOpenProductsUnitManager && (canEditProductsUnit || canToggleProductsUnitStatus || canDeleteProductsUnit);
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => PRODUCTS_UNIT_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () => PRODUCTS_UNIT_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
     const isDefaultListView = useMemo(
-        () =>
-            page === 1 &&
-            pageSize === 10 &&
-            createdSort === DEFAULT_CREATED_SORT &&
-            !debouncedSearch.trim() &&
-            filters.status === 'all',
+        () => page === 1 && pageSize === 10 && createdSort === DEFAULT_CREATED_SORT && !debouncedSearch.trim() && filters.status === 'all',
         [createdSort, debouncedSearch, filters.status, page, pageSize]
     );
 
     useEffect(() => {
-        getCsrfTokenCached();
+        void getCsrfTokenCached();
+    }, []);
+
+    useEffect(() => () => {
+        requestRef.current?.abort();
     }, []);
 
     useEffect(() => {
-        return () => {
-            requestRef.current?.abort();
-        };
-    }, []);
-
-    useEffect(() => {
-        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) {
-            return;
-        }
-
+        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) return;
         cacheHydratedRef.current = true;
         const cached = readCache<ProductsUnitCachePayload>(PRODUCTS_UNIT_CACHE_KEY, PRODUCTS_UNIT_CACHE_TTL_MS);
         if (!cached) return;
-
         setUnits(cached.items || []);
         setTotal(cached.total || 0);
         setHasCachedSnapshot(true);
@@ -255,64 +257,68 @@ export default function ProductsUnitPage() {
 
     useEffect(() => {
         if (!isDefaultListView || loading) return;
-        writeCache<ProductsUnitCachePayload>(PRODUCTS_UNIT_CACHE_KEY, {
-            items: units,
-            total,
-        });
+        writeCache<ProductsUnitCachePayload>(PRODUCTS_UNIT_CACHE_KEY, { items: units, total });
     }, [isDefaultListView, loading, total, units]);
 
-    const fetchUnits = useCallback(
-        async (options?: { background?: boolean }) => {
-            if (!isAuthorized) return;
-
-            requestRef.current?.abort();
-            const controller = new AbortController();
-            requestRef.current = controller;
-            const background = options?.background === true;
-
-            if (background) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
-            setError(null);
-
-            try {
-                const params = getQueryParams();
-                const response = await fetch(`/api/pos/productsUnit?${params.toString()}`, {
-                    cache: 'no-store',
-                    signal: controller.signal,
-                });
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
-                }
-
-                const payload = await response.json();
-                if (controller.signal.aborted) return;
-
-                setUnits(payload.data || []);
-                setTotal(payload.total || 0);
-            } catch (fetchError) {
-                if (controller.signal.aborted) return;
-                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้'));
-            } finally {
-                if (requestRef.current === controller) {
-                    requestRef.current = null;
-                }
-                if (!controller.signal.aborted) {
-                    setLoading(false);
-                    setRefreshing(false);
-                }
-            }
-        },
-        [getQueryParams, isAuthorized, setTotal]
-    );
+    useEffect(() => {
+        if (!canSearchProductsUnit && searchText) setSearchText('');
+    }, [canSearchProductsUnit, searchText, setSearchText]);
 
     useEffect(() => {
-        if (isUrlReady && isAuthorized) {
-            void fetchUnits({ background: hasCachedSnapshot });
+        if (!canFilterProductsUnit && filters.status !== 'all') updateFilter('status', 'all');
+    }, [canFilterProductsUnit, filters.status, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterProductsUnit && createdSort !== DEFAULT_CREATED_SORT) setCreatedSort(DEFAULT_CREATED_SORT);
+    }, [canFilterProductsUnit, createdSort, setCreatedSort]);
+
+    const fetchUnits = useCallback(async (options?: { background?: boolean }) => {
+        if (!isAuthorized) return;
+
+        requestRef.current?.abort();
+        const controller = new AbortController();
+        requestRef.current = controller;
+        const background = options?.background === true;
+
+        if (background) setRefreshing(true);
+        else setLoading(true);
+        setError(null);
+
+        try {
+            const params = getQueryParams();
+            if (!canSearchProductsUnit) params.delete('q');
+            if (!canFilterProductsUnit) {
+                params.delete('status');
+                params.delete('sort_created');
+            }
+
+            const response = await fetch(`/api/pos/productsUnit?${params.toString()}`, {
+                cache: 'no-store',
+                signal: controller.signal,
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
+            }
+
+            const payload = await response.json();
+            if (controller.signal.aborted) return;
+            setUnits(payload.data || []);
+            setTotal(payload.total || 0);
+        } catch (fetchError) {
+            if (controller.signal.aborted) return;
+            setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้'));
+        } finally {
+            if (requestRef.current === controller) requestRef.current = null;
+            if (!controller.signal.aborted) {
+                setLoading(false);
+                setRefreshing(false);
+            }
         }
+    }, [canFilterProductsUnit, canSearchProductsUnit, getQueryParams, isAuthorized, setTotal]);
+
+    useEffect(() => {
+        if (isUrlReady && isAuthorized) void fetchUnits({ background: hasCachedSnapshot });
     }, [fetchUnits, hasCachedSnapshot, isAuthorized, isUrlReady]);
 
     useRealtimeRefresh({
@@ -330,8 +336,8 @@ export default function ProductsUnitPage() {
     });
 
     const handleAdd = () => {
-        if (!canCreateUnits) {
-            message.error('คุณไม่มีสิทธิ์เพิ่มหน่วยสินค้า');
+        if (!canCreateProductsUnit) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มหน่วยสินค้า');
             return;
         }
         showLoading('กำลังเปิดหน้าจัดการหน่วยสินค้า...');
@@ -339,8 +345,8 @@ export default function ProductsUnitPage() {
     };
 
     const handleEdit = (unit: ProductsUnit) => {
-        if (!canUpdateUnits) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขหน่วยสินค้า');
+        if (!canOpenProductsUnitEditWorkspace) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขหน่วยสินค้า');
             return;
         }
         showLoading('กำลังเปิดหน้าแก้ไขหน่วยสินค้า...');
@@ -348,10 +354,11 @@ export default function ProductsUnitPage() {
     };
 
     const handleDelete = (unit: ProductsUnit) => {
-        if (!canDeleteUnits) {
-            message.error('คุณไม่มีสิทธิ์ลบหน่วยสินค้า');
+        if (!canDeleteProductsUnit) {
+            message.warning('คุณไม่มีสิทธิ์ลบหน่วยสินค้า');
             return;
         }
+
         Modal.confirm({
             title: 'ยืนยันการลบหน่วยสินค้า',
             content: `คุณต้องการลบหน่วยสินค้า ${unit.display_name} หรือไม่?`,
@@ -359,16 +366,14 @@ export default function ProductsUnitPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
-            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            icon: <DeleteOutlined style={{ color: '#ef4444' }} />,
             onOk: async () => {
                 setDeletingId(unit.id);
                 try {
                     const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/productsUnit/delete/${unit.id}`, {
                         method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken,
-                        },
+                        headers: { 'X-CSRF-Token': csrfToken },
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
@@ -378,11 +383,8 @@ export default function ProductsUnitPage() {
                     const shouldMoveToPreviousPage = page > 1 && units.length === 1;
                     setUnits((prev) => prev.filter((item) => item.id !== unit.id));
                     setTotal((prev) => Math.max(prev - 1, 0));
-                    if (shouldMoveToPreviousPage) {
-                        setPage(page - 1);
-                    } else {
-                        void fetchUnits({ background: true });
-                    }
+                    if (shouldMoveToPreviousPage) setPage(page - 1);
+                    else void fetchUnits({ background: true });
                     message.success(`ลบหน่วย "${unit.display_name}" สำเร็จ`);
                 } catch (deleteError) {
                     message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบหน่วยสินค้าได้');
@@ -394,10 +396,11 @@ export default function ProductsUnitPage() {
     };
 
     const handleToggleActive = async (unit: ProductsUnit, next: boolean) => {
-        if (!canUpdateUnits) {
-            message.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยสินค้า');
+        if (!canToggleProductsUnitStatus) {
+            message.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยสินค้า');
             return;
         }
+
         setUpdatingStatusId(unit.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -417,6 +420,7 @@ export default function ProductsUnitPage() {
 
             const updated = await response.json();
             setUnits((prev) => prev.map((item) => (item.id === unit.id ? updated : item)));
+            void fetchUnits({ background: true });
             message.success(next ? 'เปิดใช้งานหน่วยสินค้าแล้ว' : 'ปิดใช้งานหน่วยสินค้าแล้ว');
         } catch (toggleError) {
             message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
@@ -425,46 +429,76 @@ export default function ProductsUnitPage() {
         }
     };
 
-    if (isChecking) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
-    }
-
-    if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
-    }
-
-    if (permissionLoading) {
-        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
-    }
+    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
 
     return (
         <div className="unit-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
-
             <UIPageHeader
                 title="หน่วยสินค้า"
                 icon={<UnorderedListOutlined />}
-                actions={
+                actions={(
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })}>
-                        </Button>
-                        {canCreateUnits ? (
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })} />
+                        {canCreateProductsUnit ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มหน่วยสินค้า
                             </Button>
                         ) : null}
                     </Space>
-                }
+                )}
             />
 
             <PageContainer>
                 <PageStack>
+                    <Alert
+                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                        showIcon
+                        message={selectedRoleBlueprint?.title || 'Products unit permissions'}
+                        description={
+                            selectedRoleBlueprint
+                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                : canViewProductsUnit
+                                    ? 'บัญชีนี้สามารถเปิดหน้าหน่วยสินค้าได้'
+                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าหน่วยสินค้า'
+                        }
+                    />
+
+                    <PageSection
+                        title="Products Unit Capability Matrix"
+                        extra={<Tag color="green">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
+                    >
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 18,
+                                        padding: 16,
+                                        border: item.enabled ? '1px solid rgba(14, 116, 144, 0.18)' : '1px solid rgba(148, 163, 184, 0.24)',
+                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #ecfeff 100%)' : '#ffffff',
+                                        boxShadow: item.enabled ? '0 14px 32px rgba(14, 116, 144, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
+                                    }}
+                                >
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                        <Space wrap>
+                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
+                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
+                                                {item.securityLevel}
+                                            </Tag>
+                                        </Space>
+                                        <Text strong>{item.title}</Text>
+                                        <Text type="secondary">{item.description}</Text>
+                                    </Space>
+                                </div>
+                            ))}
+                        </div>
+                    </PageSection>
+
                     <SearchBar>
-                        <SearchInput
-                            placeholder="ค้นหา"
-                            value={searchText}
-                            onChange={setSearchText}
-                        />
+                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} disabled={!canSearchProductsUnit} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
@@ -477,6 +511,7 @@ export default function ProductsUnitPage() {
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterProductsUnit}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เรียงลำดับ"
@@ -487,37 +522,47 @@ export default function ProductsUnitPage() {
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterProductsUnit}
                                 />
                             </Space>
                         </Space>
                     </SearchBar>
 
+                    {!canSearchProductsUnit || !canFilterProductsUnit ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="บาง control ถูกล็อกตามสิทธิ์"
+                            description={`Search ${canSearchProductsUnit ? 'พร้อมใช้งาน' : 'ถูกปิด'} | Filter/Sort ${canFilterProductsUnit ? 'พร้อมใช้งาน' : 'ถูกปิด'}`}
+                        />
+                    ) : null}
+
                     <PageSection
                         title="รายการหน่วยสินค้า"
-                        extra={
+                        extra={(
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                                <Tag color={canCreateProductsUnit ? 'green' : 'default'}>create</Tag>
+                                <Tag color={canEditProductsUnit ? 'green' : 'default'}>edit</Tag>
+                                <Tag color={canToggleProductsUnitStatus ? 'green' : 'default'}>status</Tag>
+                                <Tag color={canDeleteProductsUnit ? 'red' : 'default'}>delete</Tag>
                             </Space>
-                        }
+                        )}
                     >
                         {loading && units.length === 0 ? (
                             <PageState status="loading" title="กำลังโหลดข้อมูลหน่วยสินค้า..." />
                         ) : error && units.length === 0 ? (
-                            <PageState
-                                status="error"
-                                title="โหลดข้อมูลหน่วยสินค้าไม่สำเร็จ"
-                                error={error}
-                                onRetry={() => void fetchUnits()}
-                            />
+                            <PageState status="error" title="โหลดข้อมูลหน่วยสินค้าไม่สำเร็จ" error={error} onRetry={() => void fetchUnits()} />
                         ) : units.length > 0 ? (
                             <Space direction="vertical" size={16} style={{ width: '100%' }}>
                                 {units.map((unit) => (
                                     <UnitCard
                                         key={unit.id}
                                         unit={unit}
-                                        canUpdate={canUpdateUnits}
-                                        canDelete={canDeleteUnits}
+                                        canOpenManager={canOpenProductsUnitEditWorkspace}
+                                        canToggleStatus={canToggleProductsUnitStatus}
+                                        canDelete={canDeleteProductsUnit}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
@@ -525,7 +570,6 @@ export default function ProductsUnitPage() {
                                         deletingId={deletingId}
                                     />
                                 ))}
-
                                 <div style={{ marginTop: 12 }}>
                                     <ListPagination
                                         page={page}
@@ -543,8 +587,10 @@ export default function ProductsUnitPage() {
                                 title={debouncedSearch.trim() ? 'ไม่พบหน่วยสินค้าตามคำค้น' : 'ยังไม่มีหน่วยสินค้า'}
                                 description={
                                     debouncedSearch.trim()
-                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
-                                        : 'เพิ่มหน่วยสินค้าแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง'
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาอีกครั้ง'
+                                        : canCreateProductsUnit
+                                            ? 'เพิ่มหน่วยสินค้าแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง'
+                                            : 'บัญชีนี้ดูรายการหน่วยสินค้าได้ แต่ยังไม่มีสิทธิ์สร้างหรือแก้ไขข้อมูล'
                                 }
                             />
                         )}

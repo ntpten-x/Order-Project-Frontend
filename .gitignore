@@ -10,8 +10,7 @@ node_modules/
 .next/**
 .next-build/
 .next-build/**
-.next-build-local/
-.next-build-local/**
+.next-build-local*
 .next-dist-dir
 .next-buildcheck-*/
 .next-guard/

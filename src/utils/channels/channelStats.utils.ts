@@ -26,7 +26,7 @@ export interface ChannelStats {
 /**
  * Custom hook to fetch channel statistics with WebSocket updates
  */
-export function useChannelStats() {
+export function useChannelStats(enabled: boolean = true) {
     const { socket, isConnected } = useContext(SocketContext);
     const queryClient = useQueryClient();
     const invalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -73,6 +73,7 @@ export function useChannelStats() {
         queryFn: async () => {
             return await ordersService.getStats();
         },
+        enabled,
         staleTime: isConnected ? 45_000 : 7_500,
         refetchOnReconnect: true,
         refetchOnWindowFocus: false,

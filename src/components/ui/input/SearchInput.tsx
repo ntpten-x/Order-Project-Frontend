@@ -15,6 +15,7 @@ export interface SearchInputProps {
     size?: 'small' | 'middle' | 'large';
     allowClear?: boolean;
     dataTestId?: string;
+    disabled?: boolean;
 }
 
 export const SearchInput = ({ 
@@ -25,7 +26,8 @@ export const SearchInput = ({
     style,
     size = 'large',
     allowClear = true,
-    dataTestId
+    dataTestId,
+    disabled = false,
 }: SearchInputProps) => {
     const { token } = useToken();
 
@@ -40,6 +42,7 @@ export const SearchInput = ({
                         type="text"
                         size="small"
                         icon={<ClearOutlined />}
+                        disabled={disabled}
                         onClick={() => {
                             onChange('');
                             onClear?.();
@@ -57,6 +60,7 @@ export const SearchInput = ({
                 ) : null
             }
             value={value}
+            disabled={disabled}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
             data-testid={dataTestId}
             style={{

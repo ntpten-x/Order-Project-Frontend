@@ -2,23 +2,23 @@
 
 import React, { useEffect, useMemo } from "react";
 import {
+    RocketOutlined,
     ShopOutlined,
     ShoppingOutlined,
-    RocketOutlined,
 } from "@ant-design/icons";
-import { Grid, Skeleton, Typography } from "antd";
+import { Alert, Grid, Skeleton, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
-import PageContainer from "../../../components/ui/page/PageContainer";
 import { AccessGuardFallback } from "../../../components/pos/AccessGuard";
+import PageContainer from "../../../components/ui/page/PageContainer";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
-import { useChannelStats, formatOrderCount } from "../../../utils/channels/channelStats.utils";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../lib/rbac/order-workflow-capabilities";
+import { formatOrderCount, useChannelStats } from "../../../utils/channels/channelStats.utils";
 
 const { Title, Text } = Typography;
 
-/* ── Accent colours per channel ── */
 const channelThemes = {
     dineIn: {
         iconBg: "#EFF6FF",
@@ -60,7 +60,6 @@ interface ChannelCardData {
     count: number;
 }
 
-/* ── Channel Card ── */
 function ChannelCard({
     card,
     onClick,
@@ -94,7 +93,6 @@ function ChannelCard({
                 position: "relative",
             }}
         >
-            {/* Icon circle */}
             <div
                 style={{
                     width: isMobile ? 72 : 80,
@@ -116,7 +114,6 @@ function ChannelCard({
                 })}
             </div>
 
-            {/* Labels */}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <span
                     style={{
@@ -140,7 +137,6 @@ function ChannelCard({
                 </span>
             </div>
 
-            {/* Status badge */}
             <div
                 style={{
                     display: "inline-flex",
@@ -153,7 +149,7 @@ function ChannelCard({
                     transition: "all 0.2s ease",
                 }}
             >
-                {hasOrders && (
+                {hasOrders ? (
                     <span
                         style={{
                             width: 7,
@@ -164,7 +160,7 @@ function ChannelCard({
                             flexShrink: 0,
                         }}
                     />
-                )}
+                ) : null}
                 <span
                     style={{
                         fontSize: 13,
@@ -180,20 +176,45 @@ function ChannelCard({
     );
 }
 
-/* ── Main Page ── */
 export default function POSPage() {
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const router = useRouter();
     const { currentShift, loading: shiftLoading } = useShift();
-    const { stats, isLoading: statsLoading } = useChannelStats();
+    const canViewChannels = can("orders.channels.feature", "view");
+    const canCreateOrder = can("orders.channel_create.feature", "create");
+    const canViewOrderSummary = can("orders.summary.feature", "view");
+    const { stats, isLoading: statsLoading } = useChannelStats(canViewOrderSummary);
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === String(user?.role ?? "").trim().toLowerCase()
+            ) ?? null,
+        [user?.role]
+    );
+    const channelCapabilityKeys = useMemo(
+        () => new Set(["orders.channels.feature", "orders.channel_create.feature", "orders.summary.feature"]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => channelCapabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, channelCapabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
+
+    
 
     useEffect(() => {
-        if (authLoading || permissionLoading || !can("orders.page", "view")) {
+        if (authLoading || permissionLoading || !canViewChannels) {
             return;
         }
+
         [
             "/pos/channels",
             "/pos/channels/dine-in",
@@ -205,12 +226,12 @@ export default function POSPage() {
             "/pos/topping",
             "/pos/settings",
         ].forEach((path) => router.prefetch(path));
-    }, [authLoading, can, permissionLoading, router]);
+    }, [authLoading, canViewChannels, permissionLoading, router]);
 
     const channelCards: ChannelCardData[] = useMemo(
         () => [
             {
-                key: "dineIn" as ChannelKey,
+                key: "dineIn",
                 title: "หน้าร้าน",
                 subtitle: "Dine In",
                 icon: <ShopOutlined />,
@@ -218,7 +239,7 @@ export default function POSPage() {
                 count: stats?.dineIn ?? 0,
             },
             {
-                key: "takeaway" as ChannelKey,
+                key: "takeaway",
                 title: "สั่งกลับบ้าน",
                 subtitle: "Take Away",
                 icon: <ShoppingOutlined />,
@@ -226,8 +247,8 @@ export default function POSPage() {
                 count: stats?.takeaway ?? 0,
             },
             {
-                key: "delivery" as ChannelKey,
-                title: "เดลิเวอรี่",
+                key: "delivery",
+                title: "เดลิเวอรี",
                 subtitle: "Delivery",
                 icon: <RocketOutlined />,
                 path: "/pos/channels/delivery",
@@ -243,13 +264,12 @@ export default function POSPage() {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
-    if (!can("orders.page", "view")) {
+    if (!canViewChannels) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
         <>
-            {/* Scoped hover / animation styles */}
             <style jsx global>{`
                 .pos-channel-card:hover {
                     transform: translateY(-4px);
@@ -264,16 +284,12 @@ export default function POSPage() {
                 .pos-channel-card:hover .pos-channel-icon {
                     transform: scale(1.06);
                 }
-
-                /* Touch feedback for mobile */
                 @media (max-width: 767px) {
                     .pos-channel-card:active {
                         transform: scale(0.98);
                         background: #fafbfc !important;
                     }
                 }
-
-                /* Entry animation */
                 @keyframes posChannelFadeIn {
                     from {
                         opacity: 0;
@@ -288,10 +304,15 @@ export default function POSPage() {
                     animation: posChannelFadeIn 0.4s ease-out forwards;
                     opacity: 0;
                 }
-                .pos-channel-delay-1 { animation-delay: 0.08s; }
-                .pos-channel-delay-2 { animation-delay: 0.16s; }
-                .pos-channel-delay-3 { animation-delay: 0.24s; }
-
+                .pos-channel-delay-1 {
+                    animation-delay: 0.08s;
+                }
+                .pos-channel-delay-2 {
+                    animation-delay: 0.16s;
+                }
+                .pos-channel-delay-3 {
+                    animation-delay: 0.24s;
+                }
                 .pos-channel-card {
                     -webkit-user-select: none;
                     user-select: none;
@@ -300,8 +321,67 @@ export default function POSPage() {
             `}</style>
 
             <PageContainer>
+                {selectedBlueprint ? (
+                    <div style={{ marginBottom: 16 }}>
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`Order workflow baseline for ${selectedBlueprint.roleName}`}
+                            description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                        />
+                    </div>
+                ) : null}
+                <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
+                    <Alert
+                        type="success"
+                        showIcon
+                        message="Channel Capability Matrix"
+                        description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} channel capabilities enabled.`}
+                    />
+                    <div
+                        style={{
+                            display: "grid",
+                            gap: 12,
+                            gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
+                        }}
+                    >
+                        {capabilityMatrix.map((item) => (
+                            <div
+                                key={item.resourceKey}
+                                style={{
+                                    borderRadius: 16,
+                                    border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                    background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                    padding: 14,
+                                }}
+                            >
+                                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                                <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                                <div
+                                    style={{
+                                        marginTop: 8,
+                                        color: item.allowed ? "#166534" : "#b91c1c",
+                                        fontSize: 12,
+                                        fontWeight: 600,
+                                    }}
+                                >
+                                    {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+                {!canCreateOrder ? (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Channel order creation is restricted"
+                        description="This role can still open channel workspaces, but creating new dine-in, takeaway, or delivery orders remains locked until create-order capability is granted."
+                    />
+                ) : null}
+
                 <div style={{ paddingTop: isMobile ? 4 : 12 }}>
-                    {/* Page header */}
                     <div style={{ marginBottom: isMobile ? 20 : 28 }}>
                         <Title
                             level={3}
@@ -322,11 +402,10 @@ export default function POSPage() {
                                 display: "block",
                             }}
                         >
-                            เลือกช่องทางขาย
+                            เลือกช่องทางขายที่ต้องการใช้งาน
                         </Text>
                     </div>
 
-                    {/* Channel cards grid */}
                     {isLoading ? (
                         <div
                             style={{
@@ -335,9 +414,9 @@ export default function POSPage() {
                                 gap: 16,
                             }}
                         >
-                            {[1, 2, 3].map((i) => (
+                            {[1, 2, 3].map((index) => (
                                 <div
-                                    key={i}
+                                    key={index}
                                     style={{
                                         background: "#fff",
                                         borderRadius: 20,
@@ -357,10 +436,10 @@ export default function POSPage() {
                                 gap: isMobile ? 14 : 20,
                             }}
                         >
-                            {channelCards.map((card, i) => (
+                            {channelCards.map((card, index) => (
                                 <div
                                     key={card.key}
-                                    className={`pos-channel-animate pos-channel-delay-${i + 1}`}
+                                    className={`pos-channel-animate pos-channel-delay-${index + 1}`}
                                 >
                                     <ChannelCard
                                         card={card}
@@ -372,8 +451,7 @@ export default function POSPage() {
                         </div>
                     )}
 
-                    {/* Shift note */}
-                    {!isLoading && !currentShift && (
+                    {!isLoading && !currentShift ? (
                         <div
                             style={{
                                 marginTop: 24,
@@ -384,10 +462,10 @@ export default function POSPage() {
                             }}
                         >
                             <Text style={{ fontSize: 13, color: "#92400E", lineHeight: 1.6 }}>
-                                ⓘ ระบบจะจำกัดหน้าที่ต้องเปิดกะก่อนใช้งาน เช่น รับออเดอร์ใหม่ เพื่อป้องกันการเปิดออเดอร์ผิดช่วงเวลา
+                                ระบบจะจำกัด workflow ที่ต้องเปิดกะก่อนใช้งาน เช่น การรับออเดอร์ใหม่ เพื่อป้องกันการบันทึกธุรกรรมผิดช่วงเวลา
                             </Text>
                         </div>
-                    )}
+                    ) : null}
                 </div>
             </PageContainer>
         </>

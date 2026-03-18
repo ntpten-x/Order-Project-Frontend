@@ -24,6 +24,7 @@ import { useRouter } from "next/navigation";
 
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { shiftsService } from "../../../services/pos/shifts.service";
 import type { ShiftClosePreview, ShiftSummary } from "../../../types/api/pos/shifts";
 import { BackendHttpError } from "../../../utils/api/backendResponse";
@@ -161,6 +162,7 @@ export default function CloseShiftModal({
 }: CloseShiftModalProps) {
     const { currentShift, closeShift } = useShift();
     const { user } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions();
     const router = useRouter();
     const [form] = Form.useForm();
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -198,9 +200,24 @@ export default function CloseShiftModal({
             .join(", ");
     }, [blockedInfo]);
 
+    const canPreviewCloseShift = can("shifts.close_preview.feature", "access");
+    const canFinalizeCloseShift = can("shifts.close.feature", "update");
+    const isPrivilegedCloser = user?.role === "Admin" || user?.role === "Manager";
+    const isShiftOwner = Boolean(
+        currentShift &&
+        user &&
+        (currentShift.opened_by_user_id === user.id ||
+            (!currentShift.opened_by_user_id && currentShift.user_id === user.id))
+    );
+    const canUseCloseFlow = canPreviewCloseShift && canFinalizeCloseShift && (isPrivilegedCloser || isShiftOwner);
     const varianceMeta = closePreview ? getVarianceMeta(closePreview) : null;
 
     const handleRequestClose = async (values: { endAmount: number }) => {
+        if (!canUseCloseFlow) {
+            message.warning("คุณไม่มีสิทธิ์ปิดกะนี้");
+            return;
+        }
+
         setPreviewLoading(true);
         setBlockedInfo(null);
 
@@ -223,7 +240,7 @@ export default function CloseShiftModal({
     };
 
     const handleConfirmClose = async () => {
-        if (!closePreview) return;
+        if (!closePreview || !canUseCloseFlow) return;
 
         setCloseLoading(true);
         setBlockedInfo(null);
@@ -282,7 +299,7 @@ export default function CloseShiftModal({
     return (
         <>
             <Modal
-                open={open}
+                open={open && !permissionLoading}
                 onCancel={() => !previewLoading && onCancel()}
                 title={null}
                 centered
@@ -314,7 +331,14 @@ export default function CloseShiftModal({
                 </div>
 
                 <div style={{ padding: 24 }}>
-                    {currentShift ? (
+                    {!permissionLoading && !canUseCloseFlow ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="คุณไม่มีสิทธิ์ปิดกะนี้"
+                            description="ระบบอนุญาตให้ตรวจและปิดกะได้เฉพาะผู้มีสิทธิ์และอยู่ในขอบเขตของกะปัจจุบันเท่านั้น"
+                        />
+                    ) : currentShift ? (
                         <>
                             <div className="close-shift-summary">
                                 <div className="close-shift-summary__row">

@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
-import { ShopOutlined, PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, TagsOutlined } from '@ant-design/icons';
+import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, ShopOutlined, TagsOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
 import { Category } from '../../../../types/api/pos/category';
@@ -32,6 +32,7 @@ import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { pageStyles, globalStyles } from '../../../../theme/pos/topping/style';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../utils/image/source';
+import { TOPPING_CAPABILITIES, TOPPING_ROLE_BLUEPRINT } from '../../../../lib/rbac/topping-capabilities';
 
 const { Text } = Typography;
 
@@ -39,12 +40,13 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 type CategoryFilter = 'all' | string;
 type ToppingCachePayload = { items: Topping[]; total: number };
 
-const TOPPING_CACHE_KEY = 'pos:topping:list:default-v3';
+const TOPPING_CACHE_KEY = 'pos:topping:list:default-v4';
 const TOPPING_CACHE_TTL_MS = 60 * 1000;
 
 interface ToppingCardProps {
     topping: Topping;
-    canUpdate: boolean;
+    canOpenManager: boolean;
+    canToggleStatus: boolean;
     canDelete: boolean;
     onEdit: (topping: Topping) => void;
     onDelete: (topping: Topping) => void;
@@ -67,24 +69,26 @@ const parseListResponse = <T,>(payload: unknown): T[] => {
     return [];
 };
 
-const ToppingCard = ({
+function ToppingCard({
     topping,
-    canUpdate,
+    canOpenManager,
+    canToggleStatus,
     canDelete,
     onEdit,
     onDelete,
     onToggleActive,
     updatingStatusId,
     deletingId,
-}: ToppingCardProps) => {
+}: ToppingCardProps) {
     const imageSrc = normalizeImageSource(topping.img);
     const hasImage = isSupportedImageSource(imageSrc);
+
     return (
         <div
             className="topping-card"
-            style={{ ...pageStyles.unitCard(topping.is_active), borderRadius: 16, cursor: canUpdate ? 'pointer' : 'default' }}
+            style={{ ...pageStyles.unitCard(topping.is_active), borderRadius: 16, cursor: canOpenManager ? 'pointer' : 'default' }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenManager) return;
                 onEdit(topping);
             }}
         >
@@ -117,10 +121,10 @@ const ToppingCard = ({
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)',
+                                background: 'linear-gradient(135deg, #FFF7ED 0%, #FED7AA 100%)',
                             }}
                         >
-                            <ShopOutlined style={{ fontSize: 20, color: '#4F46E5' }} />
+                            <ShopOutlined style={{ fontSize: 20, color: '#EA580C' }} />
                         </div>
                     )}
                 </div>
@@ -164,19 +168,19 @@ const ToppingCard = ({
                         size="small"
                         checked={topping.is_active}
                         loading={updatingStatusId === topping.id}
-                        disabled={!canUpdate || deletingId === topping.id}
+                        disabled={!canToggleStatus || deletingId === topping.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
-                            if (!canUpdate) return;
+                            if (!canToggleStatus) return;
                             onToggleActive(topping, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenManager ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onEdit(topping);
                             }}
                             style={{
@@ -194,8 +198,8 @@ const ToppingCard = ({
                             danger
                             loading={deletingId === topping.id}
                             icon={deletingId === topping.id ? undefined : <DeleteOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onDelete(topping);
                             }}
                             style={{
@@ -210,7 +214,7 @@ const ToppingCard = ({
             </div>
         </div>
     );
-};
+}
 
 export default function ToppingPage() {
     const router = useRouter();
@@ -224,7 +228,6 @@ export default function ToppingPage() {
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
-
     const {
         searchText,
         setSearchText,
@@ -250,9 +253,26 @@ export default function ToppingPage() {
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateTopping = can('topping.page', 'create');
-    const canUpdateTopping = can('topping.page', 'update');
-    const canDeleteTopping = can('topping.page', 'delete');
+    const canViewTopping = can('topping.page', 'view');
+    const canSearchTopping = can('topping.search.feature', 'view');
+    const canFilterTopping = can('topping.filter.feature', 'view');
+    const canOpenToppingManager = can('topping.manager.feature', 'access');
+    const canCreateTopping = can('topping.page', 'create') && can('topping.create.feature', 'create') && canOpenToppingManager;
+    const canEditToppingCatalog = can('topping.page', 'update') && can('topping.catalog.feature', 'update') && canOpenToppingManager;
+    const canEditToppingPricing = can('topping.page', 'update') && can('topping.pricing.feature', 'update') && canOpenToppingManager;
+    const canToggleToppingStatus = can('topping.page', 'update') && can('topping.status.feature', 'update') && canOpenToppingManager;
+    const canDeleteTopping = can('topping.page', 'delete') && can('topping.delete.feature', 'delete') && canOpenToppingManager;
+    const canOpenToppingEditWorkspace =
+        canOpenToppingManager && (canEditToppingCatalog || canEditToppingPricing || canToggleToppingStatus || canDeleteTopping);
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => TOPPING_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () => TOPPING_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -298,13 +318,29 @@ export default function ToppingPage() {
         writeCache<ToppingCachePayload>(TOPPING_CACHE_KEY, { items: toppings, total });
     }, [isDefaultListView, loading, total, toppings]);
 
+    useEffect(() => {
+        if (!canSearchTopping && searchText) setSearchText('');
+    }, [canSearchTopping, searchText, setSearchText]);
+
+    useEffect(() => {
+        if (!canFilterTopping && filters.status !== 'all') updateFilter('status', 'all');
+    }, [canFilterTopping, filters.status, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterTopping && filters.category_id !== 'all') updateFilter('category_id', 'all');
+    }, [canFilterTopping, filters.category_id, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterTopping && createdSort !== DEFAULT_CREATED_SORT) setCreatedSort(DEFAULT_CREATED_SORT);
+    }, [canFilterTopping, createdSort, setCreatedSort]);
+
     const fetchCategories = useCallback(async () => {
         try {
             const response = await fetch('/api/pos/category', { cache: 'no-store' });
             if (!response.ok) return;
             setCategories(parseListResponse<Category>(await response.json()));
         } catch {
-            // keep page usable even if category selector cannot be refreshed
+            // Keep topping page usable even if category selector cannot refresh.
         }
     }, []);
 
@@ -316,15 +352,21 @@ export default function ToppingPage() {
         requestRef.current = controller;
         const background = options?.background === true;
 
-        if (background) {
-            setRefreshing(true);
-        } else {
-            setLoading(true);
-        }
+        if (background) setRefreshing(true);
+        else setLoading(true);
         setError(null);
 
         try {
             const params = getQueryParams();
+            if (!canSearchTopping) {
+                params.delete('q');
+            }
+            if (!canFilterTopping) {
+                params.delete('status');
+                params.delete('category_id');
+                params.delete('sort_created');
+            }
+
             const response = await fetch(`/api/pos/topping?${params.toString()}`, {
                 cache: 'no-store',
                 signal: controller.signal,
@@ -349,7 +391,7 @@ export default function ToppingPage() {
                 setRefreshing(false);
             }
         }
-    }, [getQueryParams, isAuthorized, setTotal]);
+    }, [canFilterTopping, canSearchTopping, getQueryParams, isAuthorized, setTotal]);
 
     useEffect(() => {
         if (isUrlReady && isAuthorized) {
@@ -389,8 +431,8 @@ export default function ToppingPage() {
     };
 
     const handleEdit = (topping: Topping) => {
-        if (!canUpdateTopping) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขท็อปปิ้ง');
+        if (!canOpenToppingEditWorkspace) {
+            message.error('คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการท็อปปิ้ง');
             return;
         }
         showLoading('กำลังเปิดหน้าแก้ไขท็อปปิ้ง...');
@@ -442,7 +484,7 @@ export default function ToppingPage() {
     };
 
     const handleToggleActive = async (topping: Topping, next: boolean) => {
-        if (!canUpdateTopping) {
+        if (!canToggleToppingStatus) {
             message.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะท็อปปิ้ง');
             return;
         }
@@ -471,7 +513,9 @@ export default function ToppingPage() {
     };
 
     if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
-    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
+    if (!isAuthorized || !canViewTopping) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
     if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
 
     return (
@@ -484,9 +528,7 @@ export default function ToppingPage() {
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchToppings({ background: toppings.length > 0 })} />
-                        <Button onClick={() => router.push('/pos/toppingGroup')}>
-                            จัดการกลุ่มท็อปปิ้ง
-                        </Button>
+                        <Button onClick={() => router.push('/pos/toppingGroup')}>จัดการกลุ่มท็อปปิ้ง</Button>
                         {canCreateTopping ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มท็อปปิ้ง
@@ -498,8 +540,59 @@ export default function ToppingPage() {
 
             <PageContainer>
                 <PageStack>
+                    <Alert
+                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                        showIcon
+                        message={selectedRoleBlueprint?.title || 'Topping permissions'}
+                        description={
+                            selectedRoleBlueprint
+                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                : 'หน้าท็อปปิ้งจะแสดงเฉพาะส่วนที่ role นี้มี capability จริง'
+                        }
+                    />
+
+                    {(!canSearchTopping || !canFilterTopping || !canOpenToppingManager) ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="Some topping controls are restricted by policy"
+                            description="ระบบจะซ่อนหรือปิด search, filter, manager workspace และ action ต่าง ๆ ตาม capability ของ role นี้"
+                        />
+                    ) : null}
+
+                    <PageSection
+                        title="Topping Capability Matrix"
+                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
+                    >
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 18,
+                                        padding: 16,
+                                        border: item.enabled ? '1px solid rgba(234, 88, 12, 0.22)' : '1px solid rgba(148, 163, 184, 0.24)',
+                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #fff7ed 100%)' : '#ffffff',
+                                        boxShadow: item.enabled ? '0 14px 32px rgba(234, 88, 12, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
+                                    }}
+                                >
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                        <Space wrap>
+                                            <Tag color={item.enabled ? 'orange' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
+                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'cyan'}>
+                                                {item.securityLevel}
+                                            </Tag>
+                                        </Space>
+                                        <Text strong>{item.title}</Text>
+                                        <Text type="secondary">{item.description}</Text>
+                                    </Space>
+                                </div>
+                            ))}
+                        </div>
+                    </PageSection>
+
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหาท็อปปิ้ง" value={searchText} onChange={setSearchText} />
+                        <SearchInput placeholder="ค้นหาท็อปปิ้ง" value={searchText} onChange={setSearchText} disabled={!canSearchTopping} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
@@ -512,6 +605,7 @@ export default function ToppingPage() {
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterTopping}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เรียงลำดับ"
@@ -522,13 +616,15 @@ export default function ToppingPage() {
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterTopping}
                                 />
                                 <ModalSelector<CategoryFilter>
                                     title="เลือกหมวดหมู่"
                                     options={categoryOptions}
                                     value={filters.category_id}
                                     onChange={(value) => updateFilter('category_id', value)}
-                                    style={{ minWidth: 150 }}
+                                    style={{ minWidth: 160 }}
+                                    disabled={!canFilterTopping}
                                 />
                             </Space>
                         </Space>
@@ -553,7 +649,8 @@ export default function ToppingPage() {
                                     <ToppingCard
                                         key={topping.id}
                                         topping={topping}
-                                        canUpdate={canUpdateTopping}
+                                        canOpenManager={canOpenToppingEditWorkspace}
+                                        canToggleStatus={canToggleToppingStatus}
                                         canDelete={canDeleteTopping}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}

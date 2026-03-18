@@ -4,7 +4,7 @@ import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { Typography, Button, Grid, Input, Skeleton, Segmented } from "antd";
+import { Typography, Button, Grid, Input, Skeleton, Segmented, Alert } from "antd";
 import { 
   ReloadOutlined, 
   ClockCircleOutlined,
@@ -45,6 +45,7 @@ import PageState from "../../../../components/ui/states/PageState";
 import SmartImage from "../../../../components/ui/image/SmartImage";
 import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../lib/rbac/order-workflow-capabilities";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 
 const { Text } = Typography;
@@ -407,6 +408,7 @@ function OrderCard({
 export default function POSOrdersPage() {
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canViewOrderSummary = can("orders.summary.feature", "view");
 
     if (authLoading || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
@@ -418,12 +420,20 @@ export default function POSOrdersPage() {
 
     return (
         <RequireOpenShift>
-            <POSOrdersPageContent />
+            <POSOrdersPageContent can={can} roleName={String(user?.role ?? "")} canViewOrderSummary={canViewOrderSummary} />
         </RequireOpenShift>
     );
 }
 
-function POSOrdersPageContent() {
+function POSOrdersPageContent({
+    can,
+    roleName,
+    canViewOrderSummary,
+}: {
+    can: (resourceKey: string, action?: "access" | "view" | "create" | "update" | "delete") => boolean;
+    roleName: string;
+    canViewOrderSummary: boolean;
+}) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -442,6 +452,38 @@ function POSOrdersPageContent() {
     const [showSearch, setShowSearch] = useState(false);
     const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
     const LIMIT = 20;
+    const canSearchOrders = can("orders.search.feature", "view");
+    const canFilterOrders = can("orders.filter.feature", "view");
+    const canOpenOrderDetail = can("orders.detail.feature", "access");
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === roleName.trim().toLowerCase()
+            ) ?? null,
+        [roleName]
+    );
+    const capabilityKeys = useMemo(
+        () =>
+            new Set([
+                "orders.page",
+                "orders.search.feature",
+                "orders.filter.feature",
+                "orders.summary.feature",
+                "orders.detail.feature",
+                "orders.edit.feature",
+                "orders.cancel.feature",
+            ]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => capabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, capabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
 
     const currentTabConfig = STATUS_TABS.find(t => t.key === activeTab)!;
 
@@ -480,8 +522,9 @@ function POSOrdersPageContent() {
         status: currentTabConfig.apiStatus,
         query: debouncedSearch || undefined,
         sortCreated: createdSort,
+        enabled: canViewOrderSummary,
     });
-    const { stats: ordersStats } = useChannelStats();
+    const { stats: ordersStats } = useChannelStats(canViewOrderSummary);
 
     const getEffectiveStatus = useCallback((order: SalesOrderSummary): OrderStatus => {
         if ([OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].includes(order.status)) {
@@ -522,9 +565,12 @@ function POSOrdersPageContent() {
     ]);
 
     const navigateToOrder = useCallback((order: SalesOrderSummary) => {
+        if (!canOpenOrderDetail) {
+            return;
+        }
         const path = getOrderNavigationPath(order);
         router.push(path);
-    }, [router]);
+    }, [canOpenOrderDetail, router]);
 
     const getTimeSince = (date: string) => {
         const diff = dayjs().diff(dayjs(date), 'minute');
@@ -622,7 +668,8 @@ function POSOrdersPageContent() {
                         <Button 
                             type="text" 
                             icon={<SearchOutlined />} 
-                            onClick={() => setShowSearch(v => !v)}
+                            onClick={() => canSearchOrders && setShowSearch(v => !v)}
+                            disabled={!canSearchOrders || !canViewOrderSummary}
                             style={{ 
                                 borderRadius: 12, 
                                 width: 40, height: 40,
@@ -642,6 +689,57 @@ function POSOrdersPageContent() {
             />
 
             <PageContainer>
+                {selectedBlueprint && (
+                    <div style={{ marginBottom: 16 }}>
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`Order workflow baseline for ${selectedBlueprint.roleName}`}
+                            description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                        />
+                    </div>
+                )}
+                <PageSection title="Order Capability Matrix">
+                    <div style={{ display: "grid", gap: 12 }}>
+                        <Alert
+                            type="success"
+                            showIcon
+                            message="Order workflow capability matrix"
+                            description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} order capabilities enabled on the orders workspace.`}
+                        />
+                        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 16,
+                                        border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                        background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                        padding: 14,
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                                    <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                                    <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+                                        {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </PageSection>
+                {!canViewOrderSummary && (
+                    <PageSection>
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="Order summary is restricted by policy"
+                            description="This role can still hold page access, but queue summary, status tabs, and order lists remain hidden until the summary capability is granted."
+                        />
+                    </PageSection>
+                )}
+                {canViewOrderSummary && (
+                <>
                 {/* ═══ Search Bar (Collapsible) ═══ */}
                 {showSearch && (
                     <div style={{
@@ -658,6 +756,7 @@ function POSOrdersPageContent() {
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             placeholder="ค้นหาเลขที่ออเดอร์ โต๊ะ หรือรหัสอ้างอิง..."
                             value={searchValue}
+                            disabled={!canSearchOrders}
                             onChange={(e) => {
                                 setPage(1);
                                 setSearchValue(e.target.value);
@@ -691,9 +790,11 @@ function POSOrdersPageContent() {
                                 key={tab.key}
                                 className="orders-tab-btn"
                                 onClick={() => {
+                                    if (!canFilterOrders) return;
                                     setPage(1);
                                     setActiveTab(tab.key);
                                 }}
+                                disabled={!canFilterOrders}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -712,6 +813,7 @@ function POSOrdersPageContent() {
                                         : '0 1px 4px rgba(15,23,42,0.06)',
                                     border: isActive ? 'none' : '1px solid #E2E8F0',
                                     minHeight: 44,
+                                    opacity: canFilterOrders ? 1 : 0.55,
                                 }}
                             >
                                 {tab.icon}
@@ -742,6 +844,7 @@ function POSOrdersPageContent() {
                             { label: 'สั่งล่าสุด', value: 'new' },
                         ]}
                         value={createdSort}
+                        disabled={!canFilterOrders}
                         onChange={(value) => {
                             setPage(1);
                             setCreatedSort(value);
@@ -889,6 +992,8 @@ function POSOrdersPageContent() {
                         </>
                     )}
                 </PageSection>
+                </>
+                )}
             </PageContainer>
         </div>
     );

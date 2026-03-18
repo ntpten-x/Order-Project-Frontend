@@ -1,6 +1,6 @@
 import { Topping } from "../../types/api/pos/topping";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/topping";
 type ToppingMutationPayload = Partial<Topping> & { category_ids?: string[]; topping_group_ids?: string[] };
@@ -25,7 +25,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch toppings");
+            throwBackendHttpError(response, errorData, "Failed to fetch toppings");
         }
         return normalizeBackendPaginated<Topping>(await response.json());
     },
@@ -46,7 +46,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch toppings");
+            throwBackendHttpError(response, errorData, "Failed to fetch toppings");
         }
         return unwrapBackendData(await response.json()) as Topping[];
     },
@@ -63,7 +63,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch topping");
+            throwBackendHttpError(response, errorData, "Failed to fetch topping");
         }
         return unwrapBackendData(await response.json()) as Topping;
     },
@@ -80,7 +80,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch topping by name");
+            throwBackendHttpError(response, errorData, "Failed to fetch topping by name");
         }
         return unwrapBackendData(await response.json()) as Topping;
     },
@@ -99,7 +99,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to create topping");
+            throwBackendHttpError(response, errorData, "Failed to create topping");
         }
         return unwrapBackendData(await response.json()) as Topping;
     },
@@ -118,7 +118,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to update topping");
+            throwBackendHttpError(response, errorData, "Failed to update topping");
         }
         return unwrapBackendData(await response.json()) as Topping;
     },
@@ -136,7 +136,7 @@ export const toppingService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to delete topping");
+            throwBackendHttpError(response, errorData, "Failed to delete topping");
         }
     },
 };

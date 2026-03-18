@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Alert,
     Button,
+    Card,
     Grid,
     Modal,
     Space,
@@ -32,6 +33,8 @@ import 'dayjs/locale/th';
 import { useRouter } from 'next/navigation';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { shiftsService } from '../../../../services/pos/shifts.service';
 import {
     ShiftHistoryItem,
@@ -55,6 +58,10 @@ import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { useListState } from '../../../../hooks/pos/useListState';
+import {
+    SHIFT_HISTORY_CAPABILITIES,
+    SHIFT_HISTORY_ROLE_BLUEPRINT,
+} from '../../../../lib/rbac/shift-history-capabilities';
 
 dayjs.extend(duration);
 dayjs.extend(utc);
@@ -612,9 +619,13 @@ function ShiftHistoryDateRangeDialog({
 
 const ShiftHistoryCard = React.memo(({
     shift,
+    canViewFinancials,
+    canViewSummary,
     onViewSummary
 }: {
     shift: ShiftHistoryItem;
+    canViewFinancials: boolean;
+    canViewSummary: boolean;
     onViewSummary: (id: string) => void;
 }) => {
     const isClosed = shift.status === ShiftStatus.CLOSED;
@@ -646,21 +657,33 @@ const ShiftHistoryCard = React.memo(({
                         </div>
                     </div>
 
-                    <div className="shift-mini-metrics">
-                        <MiniMetric label="เงินเริ่มต้น" value={formatMoney(shift.start_amount)} color="#334155" />
-                        <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount, { dashWhenNull: true })} color="#0369a1" />
-                        <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount, { dashWhenNull: true })} color="#0f766e" />
-                        <MiniMetric
-                            label="ผลต่าง"
-                            value={formatMoney(shift.diff_amount, { dashWhenNull: true })}
-                            color={diffNumber === null ? '#64748b' : diffNumber >= 0 ? '#059669' : '#dc2626'}
+                    {canViewFinancials ? (
+                        <div className="shift-mini-metrics">
+                            <MiniMetric label="เงินเริ่มต้น" value={formatMoney(shift.start_amount)} color="#334155" />
+                            <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount, { dashWhenNull: true })} color="#0369a1" />
+                            <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount, { dashWhenNull: true })} color="#0f766e" />
+                            <MiniMetric
+                                label="ผลต่าง"
+                                value={formatMoney(shift.diff_amount, { dashWhenNull: true })}
+                                color={diffNumber === null ? '#64748b' : diffNumber >= 0 ? '#059669' : '#dc2626'}
+                            />
+                        </div>
+                    ) : (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message="ข้อมูลยอดเงินถูกจำกัดตาม policy"
+                            description="role นี้ดูไทม์ไลน์กะได้ แต่ไม่เห็นจำนวนเงินเริ่มต้น ยอดคาดหวัง ยอดนับจริง และผลต่าง"
+                            style={{ marginTop: 14, borderRadius: 16 }}
                         />
-                    </div>
+                    )}
                 </div>
 
-                <Button className="shift-view-btn" onClick={() => onViewSummary(shift.id)}>
-                    ดูสรุป
-                </Button>
+                {canViewSummary ? (
+                    <Button className="shift-view-btn" onClick={() => onViewSummary(shift.id)}>
+                        ดูสรุป
+                    </Button>
+                ) : null}
             </div>
         </div>
     );
@@ -681,7 +704,9 @@ export default function ShiftHistoryPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const { socket } = useSocket();
+    const { user } = useAuth();
     const { isAuthorized, isChecking } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
 
@@ -728,9 +753,16 @@ export default function ShiftHistoryPage() {
 
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
     const [isDateModalVisible, setIsDateModalVisible] = useState(false);
+    const canSearchShiftHistory = can('shift_history.search.feature', 'view');
+    const canFilterShiftHistory = can('shift_history.filter.feature', 'view');
+    const canViewShiftStats = can('shift_history.stats.feature', 'view');
+    const canViewShiftSummary = can('shift_history.summary.feature', 'access');
+    const canViewShiftFinancials = can('shift_history.financials.feature', 'view');
+    const canViewCurrentShiftPage = can('shifts.page', 'view');
     const handleViewSummary = useCallback((id: string) => {
+        if (!canViewShiftSummary) return;
         setSelectedShiftId(id);
-    }, []);
+    }, [canViewShiftSummary]);
 
     const activeDatePreset = useMemo(() => getMatchingPreset(dateRange), [dateRange]);
     const dateLabel = useMemo(() => formatDateRangeLabel(dateRange), [dateRange]);
@@ -739,18 +771,40 @@ export default function ShiftHistoryPage() {
         return `${countRangeDays(dateRange)} วัน • ${formatRangeTimeLabel(dateRange)}`;
     }, [dateRange]);
     const showDualMonthCalendar = Boolean(screens.xl);
+    const selectedRoleBlueprint = useMemo(
+        () =>
+            SHIFT_HISTORY_ROLE_BLUEPRINT.find((item) => item.roleName === user?.role) ?? null,
+        [user?.role]
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            SHIFT_HISTORY_CAPABILITIES.map((item) => ({
+                ...item,
+                enabled: can(item.resourceKey, item.action),
+            })),
+        [can]
+    );
+    const hiddenSections = useMemo(
+        () => capabilityMatrix.filter((item) => !item.enabled).map((item) => item.title),
+        [capabilityMatrix]
+    );
+    const effectiveSearchQuery = canSearchShiftHistory ? debouncedSearch.trim() : '';
+    const effectiveStatusFilter = canFilterShiftHistory ? statusFilter : 'all';
+    const effectiveCreatedSort = canFilterShiftHistory ? createdSort : undefined;
+    const effectiveDateFrom = canFilterShiftHistory ? dateFrom : undefined;
+    const effectiveDateTo = canFilterShiftHistory ? dateTo : undefined;
 
     const historyQuery = useQuery<ShiftHistoryResponse>({
-        queryKey: ['shiftHistory', page, pageSize, debouncedSearch, statusFilter, createdSort, dateFrom, dateTo],
+        queryKey: ['shiftHistory', page, pageSize, effectiveSearchQuery, effectiveStatusFilter, effectiveCreatedSort, effectiveDateFrom, effectiveDateTo],
         queryFn: async () => {
             return shiftsService.getHistory({
                 page,
                 limit: pageSize,
-                q: debouncedSearch.trim() || undefined,
-                status: statusFilter === 'all' ? undefined : statusFilter,
-                sort_created: createdSort,
-                date_from: dateFrom,
-                date_to: dateTo
+                q: effectiveSearchQuery || undefined,
+                status: effectiveStatusFilter === 'all' ? undefined : effectiveStatusFilter,
+                sort_created: effectiveCreatedSort,
+                date_from: effectiveDateFrom,
+                date_to: effectiveDateTo
             });
         },
         placeholderData: (prev) => prev,
@@ -765,7 +819,7 @@ export default function ShiftHistoryPage() {
             if (!selectedShiftId) return null;
             return (await shiftsService.getSummary(selectedShiftId)) as ShiftSummary;
         },
-        enabled: Boolean(selectedShiftId),
+        enabled: canViewShiftSummary && Boolean(selectedShiftId),
         staleTime: 10_000,
         refetchOnWindowFocus: false,
     });
@@ -799,6 +853,10 @@ export default function ShiftHistoryPage() {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลด capability ของหน้านี้..." />;
+    }
+
     if (!isAuthorized) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
@@ -814,7 +872,7 @@ export default function ShiftHistoryPage() {
                 actions={
                     <Space size={10}>
                         <Button icon={<ReloadOutlined />} onClick={() => historyQuery.refetch()} loading={historyQuery.isFetching} />
-                        <Button icon={<ClockCircleOutlined />} onClick={() => router.push('/pos/shift')}>
+                        <Button icon={<ClockCircleOutlined />} onClick={() => router.push('/pos/shift')} disabled={!canViewCurrentShiftPage}>
                             ไปหน้ากะปัจจุบัน
                         </Button>
                     </Space>
@@ -823,23 +881,84 @@ export default function ShiftHistoryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        columns={isMobile ? 2 : 3}
-                        stats={[
-                            { label: 'จำนวนกะทั้งหมด', value: totalCount, color: '#0f172a' },
-                            { label: 'กะที่เปิดอยู่', value: openCount, color: '#059669' },
-                            { label: 'กะที่ปิดแล้ว', value: closedCount, color: '#64748b' },
-                            { label: 'รวมเงินเริ่มต้น', value: formatMoney(stats?.total_start_amount), color: '#0369a1' },
-                            { label: 'รวมยอดนับจริง', value: formatMoney(stats?.total_end_amount), color: '#0f766e' },
-                            { label: 'รวมผลต่าง', value: formatMoney(stats?.total_diff_amount), color: toNumber(stats?.total_diff_amount) >= 0 ? '#059669' : '#dc2626' },
-                        ]}
-                    />
+                    {selectedRoleBlueprint ? (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`Shift History baseline สำหรับ ${selectedRoleBlueprint.roleName}`}
+                            description={`${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
+                        />
+                    ) : null}
+
+                    <Card size="small" title="Shift History Capability Matrix" style={{ borderRadius: 20 }}>
+                        <div style={{ display: 'grid', gap: 10 }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        gap: 12,
+                                        padding: '10px 12px',
+                                        borderRadius: 16,
+                                        border: '1px solid #E2E8F0',
+                                        background: item.enabled ? '#F0FDF4' : '#F8FAFC',
+                                    }}
+                                >
+                                    <div style={{ minWidth: 0 }}>
+                                        <Text strong style={{ display: 'block', color: '#0F172A' }}>
+                                            {item.title}
+                                        </Text>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            {item.description}
+                                        </Text>
+                                    </div>
+                                    <Tag color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
+                                        {item.enabled ? 'Allowed' : 'Restricted'}
+                                    </Tag>
+                                </div>
+                            ))}
+                        </div>
+                    </Card>
+
+                    {hiddenSections.length > 0 ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="Some shift-history controls are restricted by policy"
+                            description={`Hidden or locked for this role: ${hiddenSections.join(', ')}`}
+                        />
+                    ) : null}
+
+                    {canViewShiftStats ? (
+                        <StatsGroup
+                            columns={isMobile ? 2 : 3}
+                            stats={[
+                                { label: 'จำนวนกะทั้งหมด', value: totalCount, color: '#0f172a' },
+                                { label: 'กะที่เปิดอยู่', value: openCount, color: '#059669' },
+                                { label: 'กะที่ปิดแล้ว', value: closedCount, color: '#64748b' },
+                                { label: 'รวมเงินเริ่มต้น', value: formatMoney(stats?.total_start_amount), color: '#0369a1' },
+                                { label: 'รวมยอดนับจริง', value: formatMoney(stats?.total_end_amount), color: '#0f766e' },
+                                { label: 'รวมผลต่าง', value: formatMoney(stats?.total_diff_amount), color: toNumber(stats?.total_diff_amount) >= 0 ? '#059669' : '#dc2626' },
+                            ]}
+                        />
+                    ) : (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message="Branch shift stats are hidden for this role"
+                            description="ยังดูรายการประวัติกะได้ แต่ KPI และยอดรวมของสาขาจะไม่ถูกแสดง"
+                        />
+                    )}
 
                     <SearchBar>
                         <SearchInput
                             placeholder="ค้นหา"
                             value={searchText}
+                            disabled={!canSearchShiftHistory}
                             onChange={(val) => {
+                                if (!canSearchShiftHistory) return;
                                 setSearchText(val);
                             }}
                         />
@@ -862,8 +981,10 @@ export default function ShiftHistoryPage() {
                                 ]}
                                 value={statusFilter}
                                 onChange={(value) => {
+                                    if (!canFilterShiftHistory) return;
                                     updateFilter('status', value);
                                 }}
+                                disabled={!canFilterShiftHistory}
                                 style={{ minWidth: isMobile ? 0 : 150, width: '100%' }}
                             />
                             <ModalSelector<CreatedSort>
@@ -873,13 +994,20 @@ export default function ShiftHistoryPage() {
                                     { label: 'เรียงจากใหม่ก่อน', value: 'new' },
                                 ]}
                                 value={createdSort}
-                                onChange={(value) => setCreatedSort(value)}
+                                onChange={(value) => {
+                                    if (!canFilterShiftHistory) return;
+                                    setCreatedSort(value);
+                                }}
+                                disabled={!canFilterShiftHistory}
                                 style={{ minWidth: isMobile ? 0 : 120, width: '100%' }}
                             />
                             <div style={{ minWidth: 0, width: '100%' }}>
                                 <button
                                     type="button"
-                                    onClick={() => setIsDateModalVisible(true)}
+                                    onClick={() => {
+                                        if (!canFilterShiftHistory) return;
+                                        setIsDateModalVisible(true);
+                                    }}
                                     className="date-picker-button"
                                     style={{
                                         width: '100%',
@@ -892,12 +1020,13 @@ export default function ShiftHistoryPage() {
                                         gridTemplateColumns: isMobile ? '1fr' : 'auto 1fr auto',
                                         gap: 12,
                                         alignItems: 'center',
-                                        cursor: 'pointer',
+                                        cursor: canFilterShiftHistory ? 'pointer' : 'not-allowed',
                                         minHeight: isMobile ? 86 : 72,
                                         transition: 'all 0.2s ease',
                                         padding: isMobile ? '14px 16px' : '14px 18px',
                                         textAlign: 'left',
                                         boxShadow: dateRange ? '0 14px 28px rgba(79, 70, 229, 0.08)' : 'none',
+                                        opacity: canFilterShiftHistory ? 1 : 0.6,
                                     }}
                                 >
                                     <div
@@ -920,10 +1049,10 @@ export default function ShiftHistoryPage() {
                                             ช่วงเวลากรองประวัติกะ
                                         </span>
                                         <span style={{ color: '#0F172A', fontWeight: 700, fontSize: isMobile ? 14 : 16 }}>
-                                            {dateLabel}
+                                            {canFilterShiftHistory ? dateLabel : 'ต้องมีสิทธิ์ filter'}
                                         </span>
                                         <span style={{ color: '#64748B', fontSize: 12 }}>
-                                            {dateMetaLabel}
+                                            {canFilterShiftHistory ? dateMetaLabel : 'วันที่และการเรียงลำดับถูกล็อกตาม policy'}
                                         </span>
                                     </div>
                                     <CheckCircleOutlined
@@ -956,6 +1085,8 @@ export default function ShiftHistoryPage() {
                                     <ShiftHistoryCard
                                         key={shift.id}
                                         shift={shift}
+                                        canViewFinancials={canViewShiftFinancials}
+                                        canViewSummary={canViewShiftSummary}
                                         onViewSummary={handleViewSummary}
                                     />
                                 ))}
@@ -982,7 +1113,7 @@ export default function ShiftHistoryPage() {
             </PageContainer>
 
             <ShiftSummaryModal
-                open={Boolean(selectedShiftId)}
+                open={canViewShiftSummary && Boolean(selectedShiftId)}
                 onClose={() => setSelectedShiftId(null)}
                 summary={summaryQuery.data ?? null}
                 loading={summaryQuery.isLoading}
@@ -997,6 +1128,7 @@ export default function ShiftHistoryPage() {
                 showDualMonth={showDualMonthCalendar}
                 onClose={() => setIsDateModalVisible(false)}
                 onApply={(range) => {
+                    if (!canFilterShiftHistory) return;
                     setDateRange(range);
                     setIsDateModalVisible(false);
                 }}

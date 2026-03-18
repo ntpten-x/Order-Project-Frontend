@@ -1,22 +1,15 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
-import {
-    TagsOutlined,
-    PlusOutlined,
-    ReloadOutlined,
-    EditOutlined,
-    DeleteOutlined,
-} from '@ant-design/icons';
+import { Alert, Button, Modal, Space, Switch, Tag, Typography, message } from 'antd';
+import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, TagsOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
+import { ToppingGroup } from '../../../../types/api/pos/toppingGroup';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../../hooks/useSocket';
-import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
-import { useRoleGuard } from '../../../../utils/pos/accessControl';
-import { readCache, writeCache } from '../../../../utils/pos/cache';
-import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
+import { useListState } from '../../../../hooks/pos/useListState';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
@@ -25,67 +18,65 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
+import { SearchInput } from '../../../../components/ui/input/SearchInput';
+import { SearchBar } from '../../../../components/ui/page/SearchBar';
+import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
+import { readCache, writeCache } from '../../../../utils/pos/cache';
+import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
-import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { SearchBar } from '../../../../components/ui/page/SearchBar';
-import { SearchInput } from '@/components/ui/input/SearchInput';
-import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
-import { useListState } from '../../../../hooks/pos/useListState';
-import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
-import { ToppingGroup } from '../../../../types/api/pos/toppingGroup';
+import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
+import { TOPPING_GROUP_CAPABILITIES, TOPPING_GROUP_ROLE_BLUEPRINT } from '../../../../lib/rbac/topping-group-capabilities';
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-type ToppingGroupCachePayload = {
-    items: ToppingGroup[];
-    total: number;
-};
+type ToppingGroupCachePayload = { items: ToppingGroup[]; total: number };
 
-const TOPPING_GROUP_CACHE_KEY = 'pos:topping-group:list:default-v1';
+const TOPPING_GROUP_CACHE_KEY = 'pos:topping-group:list:capabilities-v1';
 const TOPPING_GROUP_CACHE_TTL_MS = 60 * 1000;
-
-interface ToppingGroupCardProps {
-    toppingGroup: ToppingGroup;
-    canUpdate: boolean;
-    canDelete: boolean;
-    onEdit: (toppingGroup: ToppingGroup) => void;
-    onDelete: (toppingGroup: ToppingGroup) => void;
-    onToggleActive: (toppingGroup: ToppingGroup, next: boolean) => void;
-    updatingStatusId: string | null;
-    deletingId: string | null;
-}
 
 const formatDate = (raw: string | Date) => {
     const date = new Date(raw);
     if (Number.isNaN(date.getTime())) return '-';
-    return new Intl.DateTimeFormat('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short',
-    }).format(date);
+    return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 };
 
-const ToppingGroupCard = ({
+type ToppingGroupCardProps = {
+    toppingGroup: ToppingGroup;
+    canOpenEditWorkspace: boolean;
+    canToggleStatus: boolean;
+    canDelete: boolean;
+    updatingStatusId: string | null;
+    deletingId: string | null;
+    onEdit: (item: ToppingGroup) => void;
+    onDelete: (item: ToppingGroup) => void;
+    onToggleActive: (item: ToppingGroup, next: boolean) => void;
+};
+
+function ToppingGroupCard({
     toppingGroup,
+    canOpenEditWorkspace,
+    canToggleStatus,
+    canDelete,
+    updatingStatusId,
+    deletingId,
     onEdit,
     onDelete,
     onToggleActive,
-    updatingStatusId,
-    deletingId,
-    canUpdate,
-    canDelete,
-}: ToppingGroupCardProps) => {
+}: ToppingGroupCardProps) {
     return (
         <div
             className="category-card"
             style={{
                 ...pageStyles.categoryCard(toppingGroup.is_active),
                 borderRadius: 16,
-                cursor: canUpdate ? 'pointer' : 'default',
+                cursor: canOpenEditWorkspace ? 'pointer' : 'default',
             }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenEditWorkspace) return;
                 onEdit(toppingGroup);
             }}
         >
@@ -96,34 +87,16 @@ const ToppingGroupCard = ({
                         height: 64,
                         borderRadius: 14,
                         border: '1px solid #F1F5F9',
-                        overflow: 'hidden',
-                        position: 'relative',
-                        background: '#F8FAFC',
+                        background: toppingGroup.is_active
+                            ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                            : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
                     }}
                 >
-                    <div
-                        style={{
-                            width: '100%',
-                            height: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: toppingGroup.is_active
-                                ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
-                                : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
-                        }}
-                    >
-                        <TagsOutlined
-                            style={{
-                                fontSize: 24,
-                                color: toppingGroup.is_active ? '#6d28d9' : '#64748b',
-                            }}
-                        />
-                    </div>
+                    <TagsOutlined style={{ fontSize: 24, color: toppingGroup.is_active ? '#6d28d9' : '#64748b' }} />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
@@ -145,28 +118,22 @@ const ToppingGroupCard = ({
                         size="small"
                         checked={toppingGroup.is_active}
                         loading={updatingStatusId === toppingGroup.id}
-                        disabled={!canUpdate || deletingId === toppingGroup.id}
+                        disabled={!canToggleStatus || deletingId === toppingGroup.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
-                            if (!canUpdate) return;
+                            if (!canToggleStatus) return;
                             onToggleActive(toppingGroup, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenEditWorkspace ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onEdit(toppingGroup);
                             }}
-                            style={{
-                                borderRadius: 10,
-                                color: '#6d28d9',
-                                background: '#f5f3ff',
-                                width: 36,
-                                height: 36,
-                            }}
+                            style={{ borderRadius: 10, color: '#6d28d9', background: '#f5f3ff', width: 36, height: 36 }}
                         />
                     ) : null}
                     {canDelete ? (
@@ -175,23 +142,18 @@ const ToppingGroupCard = ({
                             danger
                             loading={deletingId === toppingGroup.id}
                             icon={deletingId === toppingGroup.id ? undefined : <DeleteOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
+                            onClick={(event) => {
+                                event.stopPropagation();
                                 onDelete(toppingGroup);
                             }}
-                            style={{
-                                borderRadius: 10,
-                                background: '#fef2f2',
-                                width: 36,
-                                height: 36,
-                            }}
+                            style={{ borderRadius: 10, background: '#fef2f2', width: 36, height: 36 }}
                         />
                     ) : null}
                 </div>
             </div>
         </div>
     );
-};
+}
 
 export default function ToppingGroupPage() {
     const router = useRouter();
@@ -222,18 +184,38 @@ export default function ToppingGroupPage() {
         isUrlReady,
     } = useListState({
         defaultPageSize: 10,
-        defaultFilters: {
-            status: 'all' as StatusFilter,
-        },
+        defaultFilters: { status: 'all' as StatusFilter },
     });
 
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard({
+        unauthorizedMessage: 'คุณไม่มีสิทธิ์เข้าถึงหน้ากลุ่มท็อปปิ้ง',
+    });
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateToppingGroup = can('topping.page', 'create');
-    const canUpdateToppingGroup = can('topping.page', 'update');
-    const canDeleteToppingGroup = can('topping.page', 'delete');
+
+    const canViewToppingGroupPage = can('topping_group.page', 'view');
+    const canSearchToppingGroups = canViewToppingGroupPage && can('topping_group.search.feature', 'view');
+    const canFilterToppingGroups = canViewToppingGroupPage && can('topping_group.filter.feature', 'view');
+    const canOpenToppingGroupManager = can('topping_group.manager.feature', 'access');
+    const canCreateToppingGroup = can('topping_group.page', 'create') && can('topping_group.create.feature', 'create') && canOpenToppingGroupManager;
+    const canEditToppingGroup = can('topping_group.page', 'update') && can('topping_group.edit.feature', 'update') && canOpenToppingGroupManager;
+    const canToggleToppingGroupStatus = can('topping_group.page', 'update') && can('topping_group.status.feature', 'update') && canOpenToppingGroupManager;
+    const canDeleteToppingGroup = can('topping_group.page', 'delete') && can('topping_group.delete.feature', 'delete') && canOpenToppingGroupManager;
+    const canOpenEditWorkspace = canOpenToppingGroupManager && (canEditToppingGroup || canToggleToppingGroupStatus || canDeleteToppingGroup);
+
+    const capabilityMatrix = useMemo(
+        () => TOPPING_GROUP_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
+    const selectedRoleBlueprint = useMemo(() => {
+        const currentRole = String(user?.role ?? '').trim().toLowerCase();
+        return TOPPING_GROUP_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRole) ?? null;
+    }, [user?.role]);
+    const hasRestrictedControls = useMemo(
+        () => capabilityMatrix.some((item) => item.resourceKey !== 'topping_group.page' && !item.enabled),
+        [capabilityMatrix]
+    );
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -245,19 +227,15 @@ export default function ToppingGroupPage() {
     );
 
     useEffect(() => {
-        getCsrfTokenCached();
+        void getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
-        return () => {
-            requestRef.current?.abort();
-        };
+        return () => requestRef.current?.abort();
     }, []);
 
     useEffect(() => {
-        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) {
-            return;
-        }
+        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) return;
 
         cacheHydratedRef.current = true;
         const cached = readCache<ToppingGroupCachePayload>(TOPPING_GROUP_CACHE_KEY, TOPPING_GROUP_CACHE_TTL_MS);
@@ -271,37 +249,37 @@ export default function ToppingGroupPage() {
 
     useEffect(() => {
         if (!isDefaultListView || loading) return;
-        writeCache<ToppingGroupCachePayload>(TOPPING_GROUP_CACHE_KEY, {
-            items: toppingGroups,
-            total,
-        });
+        writeCache<ToppingGroupCachePayload>(TOPPING_GROUP_CACHE_KEY, { items: toppingGroups, total });
     }, [isDefaultListView, loading, toppingGroups, total]);
 
     const fetchToppingGroups = useCallback(
         async (options?: { background?: boolean }) => {
-            if (!isAuthorized) return;
+            if (!isAuthorized || !canViewToppingGroupPage) return;
 
             requestRef.current?.abort();
             const controller = new AbortController();
             requestRef.current = controller;
             const background = options?.background === true;
 
-            if (background) {
-                setRefreshing(true);
-            } else {
-                setLoading(true);
-            }
+            if (background) setRefreshing(true);
+            else setLoading(true);
             setError(null);
 
             try {
                 const params = getQueryParams();
+                if (!canSearchToppingGroups) params.delete('q');
+                if (!canFilterToppingGroups) {
+                    params.delete('status');
+                    params.delete('sort_created');
+                }
+
                 const response = await fetch(`/api/pos/toppingGroup?${params.toString()}`, {
                     cache: 'no-store',
                     signal: controller.signal,
                 });
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลกลุ่มท็อปปิ้งได้');
+                    throw new Error(errorData.error || errorData.message || 'Unable to load topping groups');
                 }
 
                 const payload = await response.json();
@@ -311,34 +289,28 @@ export default function ToppingGroupPage() {
                 setTotal(payload.total || 0);
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
-                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลกลุ่มท็อปปิ้งได้'));
+                setError(fetchError instanceof Error ? fetchError : new Error('Unable to load topping groups'));
             } finally {
-                if (requestRef.current === controller) {
-                    requestRef.current = null;
-                }
+                if (requestRef.current === controller) requestRef.current = null;
                 if (!controller.signal.aborted) {
                     setLoading(false);
                     setRefreshing(false);
                 }
             }
         },
-        [getQueryParams, isAuthorized, setTotal]
+        [canFilterToppingGroups, canSearchToppingGroups, canViewToppingGroupPage, getQueryParams, isAuthorized, setTotal]
     );
 
     useEffect(() => {
-        if (isUrlReady && isAuthorized) {
+        if (isUrlReady && isAuthorized && canViewToppingGroupPage) {
             void fetchToppingGroups({ background: hasCachedSnapshot });
         }
-    }, [fetchToppingGroups, hasCachedSnapshot, isAuthorized, isUrlReady]);
+    }, [canViewToppingGroupPage, fetchToppingGroups, hasCachedSnapshot, isAuthorized, isUrlReady]);
 
     useRealtimeRefresh({
         socket,
-        events: [
-            RealtimeEvents.toppingGroups.create,
-            RealtimeEvents.toppingGroups.update,
-            RealtimeEvents.toppingGroups.delete,
-        ],
-        enabled: isAuthorized && isUrlReady,
+        events: [RealtimeEvents.toppingGroups.create, RealtimeEvents.toppingGroups.update, RealtimeEvents.toppingGroups.delete],
+        enabled: isAuthorized && isUrlReady && canViewToppingGroupPage,
         debounceMs: 250,
         onRefresh: () => {
             void fetchToppingGroups({ background: true });
@@ -347,51 +319,51 @@ export default function ToppingGroupPage() {
 
     const handleAdd = () => {
         if (!canCreateToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์เพิ่มกลุ่มท็อปปิ้ง');
+            message.error('You do not have permission to create topping groups');
             return;
         }
-        showLoading('กำลังเปิดหน้าจัดการกลุ่มท็อปปิ้ง...');
+        showLoading('Opening topping-group manager...');
         router.push('/pos/toppingGroup/manager/add');
     };
 
-    const handleEdit = (toppingGroup: ToppingGroup) => {
-        if (!canUpdateToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขกลุ่มท็อปปิ้ง');
+    const handleEdit = (item: ToppingGroup) => {
+        if (!canOpenEditWorkspace) {
+            message.error('You do not have permission to open the topping-group manager');
             return;
         }
-        showLoading('กำลังเปิดข้อมูลกลุ่มท็อปปิ้ง...');
-        router.push(`/pos/toppingGroup/manager/edit/${toppingGroup.id}`);
+        showLoading('Opening topping-group manager...');
+        router.push(`/pos/toppingGroup/manager/edit/${item.id}`);
     };
 
-    const handleDelete = (toppingGroup: ToppingGroup) => {
+    const handleDelete = (item: ToppingGroup) => {
         if (!canDeleteToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์ลบกลุ่มท็อปปิ้ง');
+            message.error('You do not have permission to delete topping groups');
             return;
         }
 
         Modal.confirm({
-            title: 'ลบกลุ่มท็อปปิ้ง',
-            content: `ต้องการลบ ${toppingGroup.display_name} ใช่หรือไม่?`,
-            okText: 'ลบ',
-            cancelText: 'ยกเลิก',
+            title: 'Delete topping group',
+            content: `Delete ${item.display_name}?`,
+            okText: 'Delete',
+            cancelText: 'Cancel',
             okType: 'danger',
             centered: true,
             onOk: async () => {
-                setDeletingId(toppingGroup.id);
+                setDeletingId(item.id);
                 try {
                     const token = await getCsrfTokenCached();
-                    const response = await fetch(`/api/pos/toppingGroup/delete/${toppingGroup.id}`, {
+                    const response = await fetch(`/api/pos/toppingGroup/delete/${item.id}`, {
                         method: 'DELETE',
                         headers: { 'X-CSRF-Token': token },
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบกลุ่มท็อปปิ้งได้');
+                        throw new Error(errorData.error || errorData.message || 'Unable to delete topping group');
                     }
-                    message.success('ลบกลุ่มท็อปปิ้งสำเร็จ');
+                    message.success('Topping group deleted');
                     void fetchToppingGroups({ background: toppingGroups.length > 0 });
                 } catch (deleteError) {
-                    message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบกลุ่มท็อปปิ้งได้');
+                    message.error(deleteError instanceof Error ? deleteError.message : 'Unable to delete topping group');
                 } finally {
                     setDeletingId(null);
                 }
@@ -399,45 +371,37 @@ export default function ToppingGroupPage() {
         });
     };
 
-    const handleToggleActive = async (toppingGroup: ToppingGroup, next: boolean) => {
-        if (!canUpdateToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขกลุ่มท็อปปิ้ง');
+    const handleToggleActive = async (item: ToppingGroup, next: boolean) => {
+        if (!canToggleToppingGroupStatus) {
+            message.error('You do not have permission to update topping-group status');
             return;
         }
 
-        setUpdatingStatusId(toppingGroup.id);
+        setUpdatingStatusId(item.id);
         try {
             const token = await getCsrfTokenCached();
-            const response = await fetch(`/api/pos/toppingGroup/update/${toppingGroup.id}`, {
+            const response = await fetch(`/api/pos/toppingGroup/update/${item.id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': token,
-                },
-                body: JSON.stringify({
-                    display_name: toppingGroup.display_name,
-                    is_active: next,
-                }),
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': token },
+                body: JSON.stringify({ display_name: item.display_name, is_active: next }),
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตสถานะกลุ่มท็อปปิ้งได้');
+                throw new Error(errorData.error || errorData.message || 'Unable to update topping-group status');
             }
 
-            setToppingGroups((current) =>
-                current.map((item) => (item.id === toppingGroup.id ? { ...item, is_active: next } : item))
-            );
-            message.success(next ? 'เปิดใช้งานกลุ่มท็อปปิ้งแล้ว' : 'ปิดใช้งานกลุ่มท็อปปิ้งแล้ว');
+            setToppingGroups((current) => current.map((candidate) => (candidate.id === item.id ? { ...candidate, is_active: next } : candidate)));
+            message.success(next ? 'Topping group activated' : 'Topping group deactivated');
         } catch (toggleError) {
-            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะกลุ่มท็อปปิ้งได้');
+            message.error(toggleError instanceof Error ? toggleError.message : 'Unable to update topping-group status');
         } finally {
             setUpdatingStatusId(null);
         }
     };
 
     if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
-    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
-    if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    if (!isAuthorized || !canViewToppingGroupPage) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ของผู้ใช้งาน..." />;
 
     return (
         <div className="topping-group-page" style={pageStyles.container}>
@@ -448,11 +412,7 @@ export default function ToppingGroupPage() {
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            loading={refreshing}
-                            onClick={() => void fetchToppingGroups({ background: toppingGroups.length > 0 })}
-                        />
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchToppingGroups({ background: toppingGroups.length > 0 })} />
                         {canCreateToppingGroup ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มกลุ่มท็อปปิ้ง
@@ -464,12 +424,45 @@ export default function ToppingGroupPage() {
 
             <PageContainer>
                 <PageStack>
+                    {selectedRoleBlueprint ? (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`${selectedRoleBlueprint.roleName} baseline`}
+                            description={`${selectedRoleBlueprint.summary} Allowed: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
+                        />
+                    ) : null}
+
+                    {hasRestrictedControls ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="Some topping-group controls are restricted by policy"
+                            description="This page separates search, filter, manager workspace, create, edit, status control, and delete into individual capabilities."
+                        />
+                    ) : null}
+
+                    <PageSection title="Topping Group Capability Matrix">
+                        <Space wrap size={[8, 8]}>
+                            {capabilityMatrix.map((item) => (
+                                <Tag key={item.resourceKey} color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'} style={{ borderRadius: 999, paddingInline: 10 }}>
+                                    {item.title}
+                                </Tag>
+                            ))}
+                        </Space>
+                    </PageSection>
+
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} />
+                        <SearchInput
+                            placeholder="ค้นหากลุ่มท็อปปิ้ง"
+                            value={searchText}
+                            onChange={setSearchText}
+                            disabled={!canSearchToppingGroups}
+                        />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
-                                    title="เลือกสถานะ"
+                                    title="Select status"
                                     options={[
                                         { label: 'ทั้งหมด', value: 'all' },
                                         { label: 'ใช้งาน', value: 'active' },
@@ -477,17 +470,19 @@ export default function ToppingGroupPage() {
                                     ]}
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
-                                    style={{ minWidth: 120 }}
+                                    style={{ minWidth: 140 }}
+                                    disabled={!canFilterToppingGroups}
                                 />
                                 <ModalSelector<CreatedSort>
-                                    title="เรียงลำดับ"
+                                    title="Sort by created date"
                                     options={[
                                         { label: 'เก่าก่อน', value: 'old' },
                                         { label: 'ใหม่ก่อน', value: 'new' },
                                     ]}
                                     value={createdSort}
                                     onChange={setCreatedSort}
-                                    style={{ minWidth: 120 }}
+                                    style={{ minWidth: 140 }}
+                                    disabled={!canFilterToppingGroups}
                                 />
                             </Space>
                         </Space>
@@ -497,28 +492,29 @@ export default function ToppingGroupPage() {
                         title="รายการกลุ่มท็อปปิ้ง"
                         extra={
                             <Space size={8} wrap>
-                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                {refreshing ? <Tag color="processing">Refreshing</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
                             </Space>
                         }
                     >
                         {loading && toppingGroups.length === 0 ? (
-                            <PageState status="loading" title="กำลังโหลดข้อมูลกลุ่มท็อปปิ้ง..." />
+                            <PageState status="loading" title="Loading topping groups..." />
                         ) : error && toppingGroups.length === 0 ? (
-                            <PageState status="error" title="โหลดข้อมูลกลุ่มท็อปปิ้งไม่สำเร็จ" error={error} onRetry={() => void fetchToppingGroups()} />
+                            <PageState status="error" title="Unable to load topping groups" error={error} onRetry={() => void fetchToppingGroups()} />
                         ) : toppingGroups.length > 0 ? (
                             <Space direction="vertical" size={16} style={{ width: '100%' }}>
                                 {toppingGroups.map((item) => (
                                     <ToppingGroupCard
                                         key={item.id}
                                         toppingGroup={item}
-                                        canUpdate={canUpdateToppingGroup}
+                                        canOpenEditWorkspace={canOpenEditWorkspace}
+                                        canToggleStatus={canToggleToppingGroupStatus}
                                         canDelete={canDeleteToppingGroup}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
-                                        updatingStatusId={updatingStatusId}
-                                        deletingId={deletingId}
                                     />
                                 ))}
 
@@ -536,11 +532,11 @@ export default function ToppingGroupPage() {
                             </Space>
                         ) : (
                             <UIEmptyState
-                                title={debouncedSearch.trim() ? 'ไม่พบกลุ่มท็อปปิ้งตามคำค้น' : 'ยังไม่มีกลุ่มท็อปปิ้ง'}
+                                title={debouncedSearch.trim() ? 'ไม่พบกลุ่มท็อปปิ้งที่ค้นหา' : 'ยังไม่มีกลุ่มท็อปปิ้ง'}
                                 description={
                                     debouncedSearch.trim()
-                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
-                                        : 'เพิ่มกลุ่มท็อปปิ้งรายการแรกเพื่อกำหนดกลุ่มใช้งานท็อปปิ้งได้รวดเร็ว'
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาใหม่อีกครั้ง'
+                                        : 'เพิ่มกลุ่มท็อปปิ้งเพื่อจัดระเบียบการเลือกท็อปปิ้งในเมนู'
                                 }
                             />
                         )}

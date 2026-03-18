@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-03-10T08:27:10.503Z",
+  "generatedAt": "2026-03-18T17:33:42.812Z",
   "scannedFiles": [
     "src/components/BottomNavigation.tsx",
     "src/components/pos/POSBottomNavigation.tsx",
@@ -9,8 +9,8 @@
     "src/app/(main)/page.tsx"
   ],
   "menuKeys": {
-    "usedCount": 33,
-    "ruleCount": 33,
+    "usedCount": 36,
+    "ruleCount": 36,
     "missingInRules": [],
     "unusedRuleKeys": []
   },

@@ -1,6 +1,6 @@
 import { ProductsUnit } from "../../types/api/pos/productsUnit";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/productsUnit";
 
@@ -24,7 +24,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products units");
+            throwBackendHttpError(response, errorData, "Failed to fetch products units");
         }
         return normalizeBackendPaginated<ProductsUnit>(await response.json());
     },
@@ -45,7 +45,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products units");
+            throwBackendHttpError(response, errorData, "Failed to fetch products units");
         }
         return unwrapBackendData(await response.json()) as ProductsUnit[];
     },
@@ -62,7 +62,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products unit");
+            throwBackendHttpError(response, errorData, "Failed to fetch products unit");
         }
         return unwrapBackendData(await response.json()) as ProductsUnit;
     },
@@ -79,7 +79,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products unit by name");
+            throwBackendHttpError(response, errorData, "Failed to fetch products unit by name");
         }
         return unwrapBackendData(await response.json()) as ProductsUnit;
     },
@@ -98,7 +98,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to create products unit");
+            throwBackendHttpError(response, errorData, "Failed to create products unit");
         }
         return unwrapBackendData(await response.json()) as ProductsUnit;
     },
@@ -117,7 +117,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to update products unit");
+            throwBackendHttpError(response, errorData, "Failed to update products unit");
         }
         return unwrapBackendData(await response.json()) as ProductsUnit;
     },
@@ -135,7 +135,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to delete products unit");
+            throwBackendHttpError(response, errorData, "Failed to delete products unit");
         }
     },
 };

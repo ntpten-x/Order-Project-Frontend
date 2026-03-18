@@ -78,6 +78,10 @@ import {
 import { applyPresetToDocument } from "../../../../utils/print-settings/defaults";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { PrintPreset } from "../../../../types/api/pos/printSettings";
+import {
+  DASHBOARD_CAPABILITIES,
+  DASHBOARD_ROLE_BLUEPRINT,
+} from "../../../../lib/rbac/dashboard-capabilities";
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -806,9 +810,15 @@ function TopItemsList({
   );
 }
 
-function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
-  const router = useRouter();
-
+function RecentOrdersList({
+  orders,
+  canOpenDetails,
+  onOpenDetails,
+}: {
+  orders: RecentOrderSummary[];
+  canOpenDetails: boolean;
+  onOpenDetails: (orderId: string) => void;
+}) {
   if (!orders.length) {
     return (
       <Empty
@@ -828,8 +838,11 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
         };
         return (
           <List.Item
-            style={{ cursor: "pointer" }}
-            onClick={() => router.push(`/pos/dashboard/${order.id}?from=dashboard`)}
+            style={{ cursor: canOpenDetails ? "pointer" : "default" }}
+            onClick={() => {
+              if (!canOpenDetails) return;
+              onOpenDetails(order.id);
+            }}
           >
             <div style={{ width: "100%", display: "grid", gap: 6 }}>
               <div
@@ -869,6 +882,12 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
                     size="small"
                     icon={<EyeOutlined />}
                     style={{ paddingInline: 0 }}
+                    disabled={!canOpenDetails}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      if (!canOpenDetails) return;
+                      onOpenDetails(order.id);
+                    }}
                   >
                     {t("dashboard.viewDetails")}
                   </Button>
@@ -885,6 +904,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
 export default function DashboardPage() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
+  const router = useRouter();
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket, isConnected } = useSocket();
   const { message: messageApi } = App.useApp();
@@ -893,6 +913,29 @@ export default function DashboardPage() {
     enabled: Boolean(user?.id),
   });
   const canViewDashboard = can("reports.sales.page", "view");
+  const canViewDashboardSummary = can("reports.sales.summary.feature", "view");
+  const canUseDashboardFilters = can("reports.sales.filters.feature", "view");
+  const canViewDashboardChannels = can("reports.sales.channels.feature", "view");
+  const canViewDashboardTopItems = can("reports.sales.top_items.feature", "view");
+  const canViewDashboardRecentOrders = can("reports.sales.recent_orders.feature", "view");
+  const canOpenDashboardOrderDetail = can("reports.sales.order_detail.feature", "access");
+  const canExportDashboard = can("reports.sales.export.feature", "update");
+  const currentRoleName = String(user?.role ?? "").trim().toLowerCase();
+  const selectedRoleBlueprint = useMemo(
+    () =>
+      DASHBOARD_ROLE_BLUEPRINT.find(
+        (item) => item.roleName.toLowerCase() === currentRoleName,
+      ) ?? null,
+    [currentRoleName],
+  );
+  const capabilityMatrix = useMemo(
+    () =>
+      DASHBOARD_CAPABILITIES.map((item) => ({
+        ...item,
+        enabled: can(item.resourceKey, item.action),
+      })),
+    [can],
+  );
 
   const [preset, setPreset] = useState<PresetKey>("today");
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>(
@@ -930,6 +973,17 @@ export default function DashboardPage() {
     setDateRange(resolvePresetRange(preset));
   }, [preset]);
 
+  useEffect(() => {
+    if (canUseDashboardFilters) return;
+    if (preset === "custom") {
+      setPreset("today");
+      setDateRange(resolvePresetRange("today"));
+    }
+    if (rangeDialogOpen) {
+      setRangeDialogOpen(false);
+    }
+  }, [canUseDashboardFilters, preset, rangeDialogOpen]);
+
   const fetchOverview = useCallback(
     async (silent = false) => {
       if (silent) {
@@ -938,12 +992,15 @@ export default function DashboardPage() {
         setLoading(true);
       }
       try {
+        const shouldUseAdvancedFilters =
+          canUseDashboardFilters &&
+          (preset === "custom" || !isAllDayRange(dateRange));
         const data = await dashboardService.getOverview(
           startDate,
           endDate,
           7,
           8,
-          { startAt, endAt },
+          shouldUseAdvancedFilters ? { startAt, endAt } : undefined,
         );
         setOverview(data);
         writeCache(overviewCacheKey, data);
@@ -960,7 +1017,17 @@ export default function DashboardPage() {
         }
       }
     },
-    [endAt, endDate, messageApi, overviewCacheKey, startAt, startDate],
+    [
+      canUseDashboardFilters,
+      dateRange,
+      endAt,
+      endDate,
+      messageApi,
+      overviewCacheKey,
+      preset,
+      startAt,
+      startDate,
+    ],
   );
 
   useEffect(() => {
@@ -990,8 +1057,9 @@ export default function DashboardPage() {
   }, [shopProfileCacheKey]);
 
   useEffect(() => {
+    if (!canViewDashboard) return;
     void fetchShopProfile();
-  }, [fetchShopProfile]);
+  }, [canViewDashboard, fetchShopProfile]);
 
   useEffect(() => {
     primePrintResources();
@@ -1033,6 +1101,9 @@ export default function DashboardPage() {
         const rangeEnd = dateRange[1];
         const exportStart = rangeStart.format("YYYY-MM-DD");
         const exportEnd = rangeEnd.format("YYYY-MM-DD");
+        const shouldUseAdvancedFilters =
+          canUseDashboardFilters &&
+          (preset === "custom" || !isAllDayRange([rangeStart, rangeEnd]));
         const exportLabel =
           preset === "custom" || !isAllDayRange([rangeStart, rangeEnd])
             ? formatDateRangeLabel([rangeStart, rangeEnd])
@@ -1044,10 +1115,12 @@ export default function DashboardPage() {
           exportEnd,
           10,
           20,
-          {
-            startAt: rangeStart.toISOString(),
-            endAt: rangeEnd.toISOString(),
-          },
+          shouldUseAdvancedFilters
+            ? {
+                startAt: rangeStart.toISOString(),
+                endAt: rangeEnd.toISOString(),
+              }
+            : undefined,
         );
         if (!exportOverview?.summary) {
           throw new Error("ไม่พบข้อมูลสรุปสำหรับการส่งออก");
@@ -1125,16 +1198,21 @@ export default function DashboardPage() {
       dateRange,
       preset,
       receiptPaperPreset,
+      canUseDashboardFilters,
     ],
   );
 
   const openExportDialog = useCallback(() => {
+    if (!canExportDashboard) {
+      messageApi.warning("This role cannot export or print dashboard reports");
+      return;
+    }
     if (!overview || loading) {
       messageApi.warning("กรุณารอโหลดข้อมูลสรุปให้เสร็จก่อน");
       return;
     }
     setExportDialogOpen(true);
-  }, [overview, loading, messageApi]);
+  }, [canExportDashboard, overview, loading, messageApi]);
 
   const quickPresetOptions = useMemo(
     () => PRESET_OPTIONS.filter((option) => option.value !== "custom"),
@@ -1224,6 +1302,33 @@ export default function DashboardPage() {
     [dailyRows],
   );
 
+  const handleOpenOrderDetail = useCallback(
+    (orderId: string) => {
+      if (!canOpenDashboardOrderDetail) {
+        messageApi.warning("This role cannot open order detail from dashboard");
+        return;
+      }
+      void router.push(`/pos/dashboard/${orderId}?from=dashboard`);
+    },
+    [canOpenDashboardOrderDetail, messageApi, router],
+  );
+
+  const hiddenSections = useMemo(() => {
+    const sections: string[] = [];
+    if (!canUseDashboardFilters) sections.push("custom date range");
+    if (!canViewDashboardChannels) sections.push("channel mix");
+    if (!canViewDashboardRecentOrders) sections.push("recent orders");
+    if (!canOpenDashboardOrderDetail) sections.push("order detail");
+    if (!canExportDashboard) sections.push("export and print");
+    return sections;
+  }, [
+    canExportDashboard,
+    canOpenDashboardOrderDetail,
+    canUseDashboardFilters,
+    canViewDashboardChannels,
+    canViewDashboardRecentOrders,
+  ]);
+
   if (authLoading || permissionLoading) {
     return (
       <div
@@ -1270,7 +1375,7 @@ export default function DashboardPage() {
               type="primary"
               icon={<DownloadOutlined />}
               onClick={openExportDialog}
-              disabled={!overview || loading}
+              disabled={!overview || loading || !canExportDashboard}
             >
               {!isMobile ? "พิมพ์หรือดาวน์โหลดสรุปผลการขาย" : ""}
             </Button>
@@ -1280,6 +1385,55 @@ export default function DashboardPage() {
 
       <PageContainer maxWidth={1400}>
         <PageStack gap={12}>
+          {selectedRoleBlueprint ? (
+            <Alert
+              type="info"
+              showIcon
+              message={`Dashboard baseline for ${selectedRoleBlueprint.roleName}`}
+              description={`${selectedRoleBlueprint.summary} | Allowed: ${selectedRoleBlueprint.allowed.join(", ")}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(", ")}` : ""}`}
+            />
+          ) : null}
+
+          <Card size="small" title="Dashboard Capability Matrix" style={{ borderRadius: 20 }}>
+            <div style={{ display: "grid", gap: 10 }}>
+              {capabilityMatrix.map((item) => (
+                <div
+                  key={item.resourceKey}
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    gap: 12,
+                    padding: "10px 12px",
+                    borderRadius: 16,
+                    border: "1px solid #E2E8F0",
+                    background: item.enabled ? "#F0FDF4" : "#F8FAFC",
+                  }}
+                >
+                  <div style={{ minWidth: 0 }}>
+                    <Text strong style={{ display: "block", color: "#0F172A" }}>
+                      {item.title}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {item.description}
+                    </Text>
+                  </div>
+                  <Tag color={item.enabled ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                    {item.enabled ? "Allowed" : "Restricted"}
+                  </Tag>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          {hiddenSections.length > 0 ? (
+            <Alert
+              type="warning"
+              showIcon
+              message="Some dashboard sections are restricted by policy"
+              description={`Hidden or locked for this role: ${hiddenSections.join(", ")}`}
+            />
+          ) : null}
           <PageSection title="ช่วงเวลา">
             <Row gutter={[12, 12]} align="middle">
               <Col xs={24}>
@@ -1341,7 +1495,10 @@ export default function DashboardPage() {
                 <button
                   type="button"
                   aria-label="open-custom-date-range"
-                  onClick={() => setRangeDialogOpen(true)}
+                  onClick={() => {
+                    if (!canUseDashboardFilters) return;
+                    setRangeDialogOpen(true);
+                  }}
                   style={{
                     width: "100%",
                     borderRadius: 22,
@@ -1353,8 +1510,10 @@ export default function DashboardPage() {
                       "linear-gradient(135deg, rgba(255,255,255,0.98) 0%, rgba(239,246,255,0.92) 50%, rgba(236,253,245,0.92) 100%)",
                     boxShadow: "0 18px 40px rgba(15, 23, 42, 0.06)",
                     padding: isMobile ? 16 : 18,
-                    cursor: "pointer",
+                    cursor: canUseDashboardFilters ? "pointer" : "not-allowed",
+                    opacity: canUseDashboardFilters ? 1 : 0.72,
                   }}
+                  disabled={!canUseDashboardFilters}
                 >
                   <div
                     style={{
@@ -1393,7 +1552,9 @@ export default function DashboardPage() {
                           เลือกช่วงวันที่เอง
                         </Text>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          {preset === "custom"
+                          {!canUseDashboardFilters
+                            ? "Use standard presets only"
+                            : preset === "custom"
                             ? "กำหนดเองแล้ว"
                             : `ตอนนี้ใช้: ${selectedPresetLabel}`}
                         </Text>
@@ -1453,6 +1614,7 @@ export default function DashboardPage() {
             </PageSection>
           ) : (
             <>
+              {canViewDashboardSummary ? (
               <Row gutter={[12, 12]}>
                 <Col xs={12} sm={12} lg={6}>
                   <Card>
@@ -1500,10 +1662,12 @@ export default function DashboardPage() {
                   </Card>
                 </Col>
               </Row>
+              ) : null}
 
               <Row gutter={[12, 12]}>
                 <Col xs={24} lg={12}>
                   <PageSection title="ยอดขายตามช่องทาง">
+                    {canViewDashboardChannels ? (
                     <div style={{ display: "grid", gap: 10 }}>
                       {channelCards.map((channel) => {
                         const percent =
@@ -1554,12 +1718,28 @@ export default function DashboardPage() {
                         </Row>
                       </Card>
                     </div>
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        message="Channel mix is restricted for this role"
+                        description="This role can open the dashboard but cannot see sales channel and payment mix."
+                      />
+                    )}
                   </PageSection>
                 </Col>
 
                 <Col xs={24} lg={12}>
                   <PageSection title={t("dashboard.topProducts")}>
-                    <TopItemsList items={topItems} compact={isMobile} />
+                    {canViewDashboardTopItems ? (
+                      <TopItemsList items={topItems} compact={isMobile} />
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        message="Top products are restricted for this role"
+                      />
+                    )}
                   </PageSection>
                 </Col>
               </Row>
@@ -1567,11 +1747,25 @@ export default function DashboardPage() {
               <Row gutter={[12, 12]}>
                 <Col xs={24} lg={12}>
                   <PageSection title={t("dashboard.recentOrders")}>
-                    <RecentOrdersList orders={recentOrders} />
+                    {canViewDashboardRecentOrders ? (
+                      <RecentOrdersList
+                        orders={recentOrders}
+                        canOpenDetails={canOpenDashboardOrderDetail}
+                        onOpenDetails={handleOpenOrderDetail}
+                      />
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        message="Recent orders are restricted for this role"
+                        description="Order feed and drill-down are available only to operational reviewers."
+                      />
+                    )}
                   </PageSection>
                 </Col>
                 <Col xs={24} lg={12}>
                   <PageSection title={t("dashboard.dailySales")}>
+                    {canViewDashboardSummary ? (
                     <div style={{ width: "100%", overflowX: "auto" }}>
                     <Table
                       size="small"
@@ -1609,6 +1803,13 @@ export default function DashboardPage() {
                       ]}
                     />
                     </div>
+                    ) : (
+                      <Alert
+                        type="warning"
+                        showIcon
+                        message="Daily sales detail is restricted for this role"
+                      />
+                    )}
                   </PageSection>
                 </Col>
               </Row>

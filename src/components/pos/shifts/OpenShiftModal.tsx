@@ -43,7 +43,7 @@ export default function OpenShiftModal({ open, onCancel, onSuccess }: OpenShiftM
     const [submitting, setSubmitting] = useState(false);
     const [dismissedGlobal, setDismissedGlobal] = useState(false);
     const [form] = Form.useForm();
-    const canCreateShift = can("shifts.page", "create");
+    const canCreateShift = can("shifts.open.feature", "create");
     const isControlled = open !== undefined;
 
     useEffect(() => {

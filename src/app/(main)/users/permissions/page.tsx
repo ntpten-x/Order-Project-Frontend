@@ -47,6 +47,102 @@ import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { downloadBlob } from "../../../../utils/browser/download";
 import {
+    PRINT_SETTINGS_CAPABILITIES,
+    PRINT_SETTINGS_ROLE_BLUEPRINT,
+    getPrintSettingsCapability,
+    isPrintSettingsCapabilityResource,
+} from "../../../../lib/rbac/print-settings-capabilities";
+import {
+    CATEGORY_CAPABILITIES,
+    CATEGORY_ROLE_BLUEPRINT,
+    getCategoryCapability,
+    isCategoryCapabilityResource,
+} from "../../../../lib/rbac/category-capabilities";
+import {
+    DELIVERY_CAPABILITIES,
+    DELIVERY_ROLE_BLUEPRINT,
+    getDeliveryCapability,
+    isDeliveryCapabilityResource,
+} from "../../../../lib/rbac/delivery-capabilities";
+import {
+    DISCOUNTS_CAPABILITIES,
+    DISCOUNTS_ROLE_BLUEPRINT,
+    getDiscountsCapability,
+    isDiscountsCapabilityResource,
+} from "../../../../lib/rbac/discounts-capabilities";
+import {
+    PAYMENT_METHOD_CAPABILITIES,
+    PAYMENT_METHOD_ROLE_BLUEPRINT,
+    getPaymentMethodCapability,
+    isPaymentMethodCapabilityResource,
+} from "../../../../lib/rbac/payment-method-capabilities";
+import {
+    SETTINGS_CAPABILITIES,
+    SETTINGS_ROLE_BLUEPRINT,
+    getSettingsCapability,
+    isSettingsCapabilityResource,
+} from "../../../../lib/rbac/settings-capabilities";
+import {
+    PRODUCTS_UNIT_CAPABILITIES,
+    PRODUCTS_UNIT_ROLE_BLUEPRINT,
+    getProductsUnitCapability,
+    isProductsUnitCapabilityResource,
+} from "../../../../lib/rbac/products-unit-capabilities";
+import {
+    PRODUCTS_CAPABILITIES,
+    PRODUCTS_ROLE_BLUEPRINT,
+    getProductsCapability,
+    isProductsCapabilityResource,
+} from "../../../../lib/rbac/products-capabilities";
+import {
+    SHIFT_HISTORY_CAPABILITIES,
+    SHIFT_HISTORY_ROLE_BLUEPRINT,
+    getShiftHistoryCapability,
+    isShiftHistoryCapabilityResource,
+} from "../../../../lib/rbac/shift-history-capabilities";
+import {
+    SHIFT_CAPABILITIES,
+    SHIFT_ROLE_BLUEPRINT,
+    getShiftCapability,
+    isShiftCapabilityResource,
+} from "../../../../lib/rbac/shift-capabilities";
+import {
+    DASHBOARD_CAPABILITIES,
+    DASHBOARD_ROLE_BLUEPRINT,
+    getDashboardCapability,
+    isDashboardCapabilityResource,
+} from "../../../../lib/rbac/dashboard-capabilities";
+import {
+    QR_CODE_CAPABILITIES,
+    QR_CODE_ROLE_BLUEPRINT,
+    getQrCodeCapability,
+    isQrCodeCapabilityResource,
+} from "../../../../lib/rbac/qr-code-capabilities";
+import {
+    TABLES_CAPABILITIES,
+    TABLES_ROLE_BLUEPRINT,
+    getTablesCapability,
+    isTablesCapabilityResource,
+} from "../../../../lib/rbac/tables-capabilities";
+import {
+    TOPPING_GROUP_CAPABILITIES,
+    TOPPING_GROUP_ROLE_BLUEPRINT,
+    getToppingGroupCapability,
+    isToppingGroupCapabilityResource,
+} from "../../../../lib/rbac/topping-group-capabilities";
+import {
+    TOPPING_CAPABILITIES,
+    TOPPING_ROLE_BLUEPRINT,
+    getToppingCapability,
+    isToppingCapabilityResource,
+} from "../../../../lib/rbac/topping-capabilities";
+import {
+    ORDER_WORKFLOW_CAPABILITIES,
+    ORDER_WORKFLOW_ROLE_BLUEPRINT,
+    getOrderWorkflowCapability,
+    isOrderWorkflowCapabilityResource,
+} from "../../../../lib/rbac/order-workflow-capabilities";
+import {
     EffectiveRolePermissionRow,
     PermissionAuditItem,
     PermissionOverrideApprovalItem,
@@ -59,8 +155,8 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 type PermissionRow = EffectiveRolePermissionRow & { key: string };
-type SystemGroup = "main" | "pos" | "stock" | "users" | "branch" | "audit" | "other";
-type ResourceKind = "menu" | "page";
+type SystemGroup = "main" | "print" | "qr" | "settings" | "pos" | "stock" | "users" | "branch" | "audit" | "other";
+type ResourceKind = "menu" | "page" | "feature";
 type PermissionSnapshot = {
     resourceKey: string;
     pageLabel?: string;
@@ -88,6 +184,9 @@ type SemanticDiffRow = {
 const SYSTEM_FILTER_OPTIONS: Array<{ label: string; value: SystemGroup | "all" }> = [
     { label: "ทั้งหมด", value: "all" },
     { label: "หน้าหลัก (/)", value: "main" },
+    { label: "Print Setting", value: "print" },
+    { label: "QR Code", value: "qr" },
+    { label: "POS Settings", value: "settings" },
     { label: "POS", value: "pos" },
     { label: "Stock", value: "stock" },
     { label: "Users", value: "users" },
@@ -118,6 +217,7 @@ const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.pos.products": "สินค้า",
     "menu.pos.productsUnit": "หน่วยสินค้า",
     "menu.pos.topping": "ท็อปปิ้ง",
+    "menu.pos.toppingGroup": "กลุ่มท็อปปิ้ง",
     "menu.pos.discounts": "ส่วนลด",
     "menu.pos.payment": "วิธีชำระเงิน",
     "menu.pos.settings": "ตั้งค่า",
@@ -229,6 +329,7 @@ function approvalStatusTag(status: PermissionOverrideApprovalStatus) {
 
 function getResourceKind(resourceKey: string): ResourceKind {
     if (resourceKey in MAIN_PAGE_LABEL_BY_RESOURCE_KEY) return "page";
+    if (resourceKey.endsWith(".feature")) return "feature";
     return resourceKey.startsWith("menu.") ? "menu" : "page";
 }
 
@@ -236,6 +337,9 @@ function getSystemGroup(resourceKey: string, route?: string): SystemGroup {
     const key = resourceKey.toLowerCase();
     const path = (route || "").toLowerCase();
 
+    if (key.includes("print_settings") || key.includes("menu.module.print") || path.startsWith("/print-setting")) return "print";
+    if (key.includes("qr_code") || path.startsWith("/pos/qr-code") || path.startsWith("/pos/takeaway-qr")) return "qr";
+    if (key.includes("pos_settings") || key.includes("shop_profile") || key.includes("payment_accounts") || path.startsWith("/pos/settings")) return "settings";
     if (resourceKey in MAIN_PAGE_LABEL_BY_RESOURCE_KEY || path === "/" || path.startsWith("/?")) return "main";
     if (key.includes("stock") || path.startsWith("/stock")) return "stock";
     if (key.includes("pos") || path.startsWith("/pos")) return "pos";
@@ -247,6 +351,9 @@ function getSystemGroup(resourceKey: string, route?: string): SystemGroup {
 
 function systemGroupTag(group: SystemGroup) {
     if (group === "main") return <Tag color="magenta">หน้าหลัก</Tag>;
+    if (group === "print") return <Tag color="orange">Print Setting</Tag>;
+    if (group === "qr") return <Tag color="cyan">QR Code</Tag>;
+    if (group === "settings") return <Tag color="blue">POS Settings</Tag>;
     if (group === "pos") return <Tag color="geekblue">POS</Tag>;
     if (group === "stock") return <Tag color="green">Stock</Tag>;
     if (group === "users") return <Tag color="purple">Users</Tag>;
@@ -257,6 +364,7 @@ function systemGroupTag(group: SystemGroup) {
 
 function resourceKindTag(kind: ResourceKind) {
     if (kind === "menu") return <Tag color="cyan">เมนู</Tag>;
+    if (kind === "feature") return <Tag color="volcano">Capability</Tag>;
     return <Tag color="blue">หน้าใช้งาน</Tag>;
 }
 
@@ -306,6 +414,38 @@ function fallbackPermissionLabel(resourceKey: string) {
 }
 
 function resolvePermissionLabel(resourceKey: string, pageLabel?: string | null) {
+    const orderWorkflowCapability = getOrderWorkflowCapability(resourceKey);
+    if (orderWorkflowCapability) return orderWorkflowCapability.title;
+    const settingsCapability = getSettingsCapability(resourceKey);
+    if (settingsCapability) return settingsCapability.title;
+    const shiftCapability = getShiftCapability(resourceKey);
+    if (shiftCapability) return shiftCapability.title;
+    const toppingGroupCapability = getToppingGroupCapability(resourceKey);
+    if (toppingGroupCapability) return toppingGroupCapability.title;
+    const toppingCapability = getToppingCapability(resourceKey);
+    if (toppingCapability) return toppingCapability.title;
+    const tablesCapability = getTablesCapability(resourceKey);
+    if (tablesCapability) return tablesCapability.title;
+    const qrCodeCapability = getQrCodeCapability(resourceKey);
+    if (qrCodeCapability) return qrCodeCapability.title;
+    const shiftHistoryCapability = getShiftHistoryCapability(resourceKey);
+    if (shiftHistoryCapability) return shiftHistoryCapability.title;
+    const dashboardCapability = getDashboardCapability(resourceKey);
+    if (dashboardCapability) return dashboardCapability.title;
+    const printCapability = getPrintSettingsCapability(resourceKey);
+    if (printCapability) return printCapability.title;
+    const categoryCapability = getCategoryCapability(resourceKey);
+    if (categoryCapability) return categoryCapability.title;
+    const deliveryCapability = getDeliveryCapability(resourceKey);
+    if (deliveryCapability) return deliveryCapability.title;
+    const discountsCapability = getDiscountsCapability(resourceKey);
+    if (discountsCapability) return discountsCapability.title;
+    const paymentMethodCapability = getPaymentMethodCapability(resourceKey);
+    if (paymentMethodCapability) return paymentMethodCapability.title;
+    const productsCapability = getProductsCapability(resourceKey);
+    if (productsCapability) return productsCapability.title;
+    const productsUnitCapability = getProductsUnitCapability(resourceKey);
+    if (productsUnitCapability) return productsUnitCapability.title;
     const trimmed = (pageLabel ?? "").trim();
     return trimmed || fallbackPermissionLabel(resourceKey);
 }
@@ -487,11 +627,139 @@ export default function PermissionsPage() {
     const selectedRoleName = useMemo(() => {
         if (isRoleMode) {
             const role = roles.find((r) => r.id === selectedRole);
-            return role?.display_name || role?.roles_name || "";
+            return role?.roles_name || role?.display_name || "";
         }
         const user = users.find((u) => u.id === selectedUser);
-        return user?.roles?.display_name || user?.roles?.roles_name || "";
+        return user?.roles?.roles_name || user?.roles?.display_name || "";
     }, [isRoleMode, roles, selectedRole, users, selectedUser]);
+
+    const selectedOrderWorkflowRoleBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedRoleBlueprint = useMemo(
+        () =>
+            PRINT_SETTINGS_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedSettingsRoleBlueprint = useMemo(
+        () =>
+            SETTINGS_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedCategoryRoleBlueprint = useMemo(
+        () =>
+            CATEGORY_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedDeliveryRoleBlueprint = useMemo(
+        () =>
+            DELIVERY_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedDiscountsRoleBlueprint = useMemo(
+        () =>
+            DISCOUNTS_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedPaymentMethodRoleBlueprint = useMemo(
+        () =>
+            PAYMENT_METHOD_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedProductsUnitRoleBlueprint = useMemo(
+        () =>
+            PRODUCTS_UNIT_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedProductsRoleBlueprint = useMemo(
+        () =>
+            PRODUCTS_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedShiftRoleBlueprint = useMemo(
+        () =>
+            SHIFT_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedShiftHistoryRoleBlueprint = useMemo(
+        () =>
+            SHIFT_HISTORY_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedDashboardRoleBlueprint = useMemo(
+        () =>
+            DASHBOARD_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedQrCodeRoleBlueprint = useMemo(
+        () =>
+            QR_CODE_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedTablesRoleBlueprint = useMemo(
+        () =>
+            TABLES_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedToppingRoleBlueprint = useMemo(
+        () =>
+            TOPPING_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
+
+    const selectedToppingGroupRoleBlueprint = useMemo(
+        () =>
+            TOPPING_GROUP_ROLE_BLUEPRINT.find(
+                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(selectedRoleName)
+            ) ?? null,
+        [selectedRoleName]
+    );
 
     const isAdminTarget = useMemo(() => normalizeRoleName(selectedRoleName) === "admin", [selectedRoleName]);
 
@@ -521,6 +789,166 @@ export default function PermissionsPage() {
         });
     }, [rows, tableSearch, systemFilter]);
 
+    const orderWorkflowRows = useMemo(
+        () => rows.filter((row) => isOrderWorkflowCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const printSettingsRows = useMemo(
+        () => rows.filter((row) => isPrintSettingsCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const settingsRows = useMemo(
+        () => rows.filter((row) => isSettingsCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const categoryRows = useMemo(
+        () => rows.filter((row) => isCategoryCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const deliveryRows = useMemo(
+        () => rows.filter((row) => isDeliveryCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const discountsRows = useMemo(
+        () => rows.filter((row) => isDiscountsCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const paymentMethodRows = useMemo(
+        () => rows.filter((row) => isPaymentMethodCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const productsRows = useMemo(
+        () => rows.filter((row) => isProductsCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const shiftRows = useMemo(
+        () => rows.filter((row) => isShiftCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const shiftHistoryRows = useMemo(
+        () => rows.filter((row) => isShiftHistoryCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const dashboardRows = useMemo(
+        () => rows.filter((row) => isDashboardCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const productsUnitRows = useMemo(
+        () => rows.filter((row) => isProductsUnitCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const qrCodeRows = useMemo(
+        () => rows.filter((row) => isQrCodeCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const tablesRows = useMemo(
+        () => rows.filter((row) => isTablesCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const toppingRows = useMemo(
+        () => rows.filter((row) => isToppingCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const toppingGroupRows = useMemo(
+        () => rows.filter((row) => isToppingGroupCapabilityResource(row.resourceKey)),
+        [rows]
+    );
+
+    const printSettingsAllowedCount = useMemo(
+        () => printSettingsRows.filter((row) => row.canAccess || row.canView || row.canUpdate).length,
+        [printSettingsRows]
+    );
+
+    const orderWorkflowAllowedCount = useMemo(
+        () => orderWorkflowRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [orderWorkflowRows]
+    );
+
+    const settingsAllowedCount = useMemo(
+        () => settingsRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [settingsRows]
+    );
+
+    const categoryAllowedCount = useMemo(
+        () => categoryRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [categoryRows]
+    );
+
+    const deliveryAllowedCount = useMemo(
+        () => deliveryRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [deliveryRows]
+    );
+
+    const discountsAllowedCount = useMemo(
+        () => discountsRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [discountsRows]
+    );
+
+    const paymentMethodAllowedCount = useMemo(
+        () => paymentMethodRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [paymentMethodRows]
+    );
+
+    const productsAllowedCount = useMemo(
+        () => productsRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [productsRows]
+    );
+
+    const shiftAllowedCount = useMemo(
+        () => shiftRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [shiftRows]
+    );
+
+    const shiftHistoryAllowedCount = useMemo(
+        () => shiftHistoryRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [shiftHistoryRows]
+    );
+
+    const dashboardAllowedCount = useMemo(
+        () => dashboardRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [dashboardRows]
+    );
+
+    const productsUnitAllowedCount = useMemo(
+        () => productsUnitRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [productsUnitRows]
+    );
+
+    const qrCodeAllowedCount = useMemo(
+        () => qrCodeRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [qrCodeRows]
+    );
+
+    const tablesAllowedCount = useMemo(
+        () => tablesRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [tablesRows]
+    );
+
+    const toppingAllowedCount = useMemo(
+        () => toppingRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [toppingRows]
+    );
+
+    const toppingGroupAllowedCount = useMemo(
+        () => toppingGroupRows.filter((row) => row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete).length,
+        [toppingGroupRows]
+    );
+
     const selectedSystemLabel = useMemo(() => {
         if (systemFilter === "all") return "ทั้งหมด";
         return SYSTEM_FILTER_OPTIONS.find((item) => item.value === systemFilter)?.label || "ทั้งหมด";
@@ -536,10 +964,18 @@ export default function PermissionsPage() {
         [filteredRows]
     );
 
+    const featureRows = useMemo(
+        () => filteredRows.filter((row) => getResourceKind(row.resourceKey) === "feature"),
+        [filteredRows]
+    );
+
     const sectionSummary = useMemo(() => {
         const base = {
             total: rows.length,
             main: 0,
+            print: 0,
+            qr: 0,
+            settings: 0,
             pos: 0,
             stock: 0,
             users: 0,
@@ -548,6 +984,7 @@ export default function PermissionsPage() {
             other: 0,
             menu: 0,
             page: 0,
+            feature: 0,
         };
         for (const row of rows) {
             const system = getSystemGroup(row.resourceKey, row.route);
@@ -900,6 +1337,73 @@ export default function PermissionsPage() {
                         style={{ width: "100%", minWidth: 140 }}
                     />
                 );
+            },
+        },
+    ];
+
+    const featureColumns = [
+        {
+            title: "Capability",
+            key: "capability",
+            width: 260,
+            render: (_: unknown, row: PermissionRow) => {
+                const capability = getPrintSettingsCapability(row.resourceKey);
+                return (
+                    <Space direction="vertical" size={0}>
+                        <Text strong>{capability?.title || resolvePermissionLabel(row.resourceKey, row.pageLabel)}</Text>
+                        <Text type="secondary">{capability?.description || row.resourceKey}</Text>
+                    </Space>
+                );
+            },
+        },
+        {
+            title: "ระบบ",
+            key: "system",
+            align: "center" as const,
+            render: (_: unknown, row: PermissionRow) => systemGroupTag(getSystemGroup(row.resourceKey, row.route)),
+            width: 120,
+        },
+        {
+            title: "ประเภท",
+            key: "kind",
+            align: "center" as const,
+            render: () => resourceKindTag("feature"),
+            width: 120,
+        },
+        {
+            title: "เข้าใช้",
+            dataIndex: "canAccess",
+            key: "canAccess",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "access"),
+            width: 90,
+        },
+        {
+            title: "ดู",
+            dataIndex: "canView",
+            key: "canView",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "view"),
+            width: 90,
+        },
+        {
+            title: "แก้ไข/เผยแพร่",
+            dataIndex: "canUpdate",
+            key: "canUpdate",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "update"),
+            width: 120,
+        },
+        {
+            title: "ระดับ",
+            key: "securityLevel",
+            width: 120,
+            align: "center" as const,
+            render: (_: unknown, row: PermissionRow) => {
+                const level = getPrintSettingsCapability(row.resourceKey)?.securityLevel;
+                if (level === "governance") return <Tag color="red">Governance</Tag>;
+                if (level === "sensitive") return <Tag color="orange">Sensitive</Tag>;
+                return <Tag color="green">Core</Tag>;
             },
         },
     ];
@@ -1318,6 +1822,18 @@ export default function PermissionsPage() {
                                 </Col>
                                 <Col xs={12} md={4}>
                                     <Card size="small">
+                                        <Text type="secondary">Print Setting</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.print}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">QR Code</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.qr}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
                                         <Text type="secondary">POS</Text>
                                         <Title level={5} style={{ margin: 0 }}>{sectionSummary.pos}</Title>
                                     </Card>
@@ -1338,6 +1854,12 @@ export default function PermissionsPage() {
                                     <Card size="small">
                                         <Text type="secondary">หน้าใช้งาน</Text>
                                         <Title level={5} style={{ margin: 0 }}>{sectionSummary.page}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">Capability</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.feature}</Title>
                                     </Card>
                                 </Col>
                                 <Col xs={12} md={4}>
@@ -1417,6 +1939,294 @@ export default function PermissionsPage() {
                                 />
                             )}
 
+                            {selectedOrderWorkflowRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Order workflow baseline สำหรับ ${selectedOrderWorkflowRoleBlueprint.roleName}`}
+                                    description={`${selectedOrderWorkflowRoleBlueprint.summary} | ทำได้: ${selectedOrderWorkflowRoleBlueprint.allowed.join(", ")}${selectedOrderWorkflowRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedOrderWorkflowRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Blueprint แนะนำสำหรับ ${selectedRoleBlueprint.roleName}`}
+                                    description={`${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(", ")}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedSettingsRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Settings baseline สำหรับ ${selectedSettingsRoleBlueprint.roleName}`}
+                                    description={`${selectedSettingsRoleBlueprint.summary} | ทำได้: ${selectedSettingsRoleBlueprint.allowed.join(", ")}${selectedSettingsRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedSettingsRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedCategoryRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Category baseline สำหรับ ${selectedCategoryRoleBlueprint.roleName}`}
+                                    description={`${selectedCategoryRoleBlueprint.summary} | ทำได้: ${selectedCategoryRoleBlueprint.allowed.join(", ")}${selectedCategoryRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedCategoryRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedDeliveryRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Delivery baseline สำหรับ ${selectedDeliveryRoleBlueprint.roleName}`}
+                                    description={`${selectedDeliveryRoleBlueprint.summary} | ทำได้: ${selectedDeliveryRoleBlueprint.allowed.join(", ")}${selectedDeliveryRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedDeliveryRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedDiscountsRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Discount baseline สำหรับ ${selectedDiscountsRoleBlueprint.roleName}`}
+                                    description={`${selectedDiscountsRoleBlueprint.summary} | ทำได้: ${selectedDiscountsRoleBlueprint.allowed.join(", ")}${selectedDiscountsRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedDiscountsRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedPaymentMethodRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Payment method baseline สำหรับ ${selectedPaymentMethodRoleBlueprint.roleName}`}
+                                    description={`${selectedPaymentMethodRoleBlueprint.summary} | ทำได้: ${selectedPaymentMethodRoleBlueprint.allowed.join(", ")}${selectedPaymentMethodRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedPaymentMethodRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedProductsRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Products baseline สำหรับ ${selectedProductsRoleBlueprint.roleName}`}
+                                    description={`${selectedProductsRoleBlueprint.summary} | ทำได้: ${selectedProductsRoleBlueprint.allowed.join(", ")}${selectedProductsRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedProductsRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedShiftRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Shift baseline สำหรับ ${selectedShiftRoleBlueprint.roleName}`}
+                                    description={`${selectedShiftRoleBlueprint.summary} | ทำได้: ${selectedShiftRoleBlueprint.allowed.join(", ")}${selectedShiftRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedShiftRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedShiftHistoryRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Shift History baseline สำหรับ ${selectedShiftHistoryRoleBlueprint.roleName}`}
+                                    description={`${selectedShiftHistoryRoleBlueprint.summary} | ทำได้: ${selectedShiftHistoryRoleBlueprint.allowed.join(", ")}${selectedShiftHistoryRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedShiftHistoryRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedDashboardRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Dashboard baseline สำหรับ ${selectedDashboardRoleBlueprint.roleName}`}
+                                    description={`${selectedDashboardRoleBlueprint.summary} | ทำได้: ${selectedDashboardRoleBlueprint.allowed.join(", ")}${selectedDashboardRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedDashboardRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedTablesRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Tables baseline สำหรับ ${selectedTablesRoleBlueprint.roleName}`}
+                                    description={`${selectedTablesRoleBlueprint.summary} | ทำได้: ${selectedTablesRoleBlueprint.allowed.join(", ")}${selectedTablesRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedTablesRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedToppingRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Topping baseline สำหรับ ${selectedToppingRoleBlueprint.roleName}`}
+                                    description={`${selectedToppingRoleBlueprint.summary} | ทำได้: ${selectedToppingRoleBlueprint.allowed.join(", ")}${selectedToppingRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedToppingRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedToppingGroupRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Topping Group baseline สำหรับ ${selectedToppingGroupRoleBlueprint.roleName}`}
+                                    description={`${selectedToppingGroupRoleBlueprint.summary} | ทำได้: ${selectedToppingGroupRoleBlueprint.allowed.join(", ")}${selectedToppingGroupRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedToppingGroupRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedQrCodeRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`QR Code baseline สำหรับ ${selectedQrCodeRoleBlueprint.roleName}`}
+                                    description={`${selectedQrCodeRoleBlueprint.summary} | ทำได้: ${selectedQrCodeRoleBlueprint.allowed.join(", ")}${selectedQrCodeRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedQrCodeRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {selectedProductsUnitRoleBlueprint && (
+                                <Alert
+                                    type="info"
+                                    showIcon
+                                    message={`Products unit baseline สำหรับ ${selectedProductsUnitRoleBlueprint.roleName}`}
+                                    description={`${selectedProductsUnitRoleBlueprint.summary} | ทำได้: ${selectedProductsUnitRoleBlueprint.allowed.join(", ")}${selectedProductsUnitRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedProductsUnitRoleBlueprint.denied.join(", ")}` : ""}`}
+                                />
+                            )}
+
+                            {orderWorkflowRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Order workflow capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ orders/list/items/channels ${orderWorkflowAllowedCount}/${orderWorkflowRows.length} รายการ`}
+                                />
+                            )}
+
+                            {settingsRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Settings capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/settings ${settingsAllowedCount}/${settingsRows.length} รายการ`}
+                                />
+                            )}
+
+                            {categoryRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Category capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/category ${categoryAllowedCount}/${categoryRows.length} รายการ`}
+                                />
+                            )}
+
+                            {deliveryRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Delivery capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/delivery ${deliveryAllowedCount}/${deliveryRows.length} รายการ`}
+                                />
+                            )}
+
+                            {discountsRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Discount capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/discounts ${discountsAllowedCount}/${discountsRows.length} รายการ`}
+                                />
+                            )}
+
+                            {paymentMethodRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Payment method capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/paymentMethod ${paymentMethodAllowedCount}/${paymentMethodRows.length} รายการ`}
+                                />
+                            )}
+
+                            {productsRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Products capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/products ${productsAllowedCount}/${productsRows.length} รายการ`}
+                                />
+                            )}
+
+                            {shiftRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Shift capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/shift ${shiftAllowedCount}/${shiftRows.length} รายการ`}
+                                />
+                            )}
+
+                            {shiftHistoryRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Shift History capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/shiftHistory ${shiftHistoryAllowedCount}/${shiftHistoryRows.length} รายการ`}
+                                />
+                            )}
+
+                            {dashboardRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Dashboard capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/dashboard ${dashboardAllowedCount}/${dashboardRows.length} รายการ`}
+                                />
+                            )}
+
+                            {tablesRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Tables capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/tables ${tablesAllowedCount}/${tablesRows.length} รายการ`}
+                                />
+                            )}
+
+                            {toppingRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Topping capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/topping ${toppingAllowedCount}/${toppingRows.length} รายการ`}
+                                />
+                            )}
+
+                            {toppingGroupRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Topping Group capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/toppingGroup ${toppingGroupAllowedCount}/${toppingGroupRows.length} รายการ`}
+                                />
+                            )}
+
+                            {qrCodeRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="QR code capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/qr-code ${qrCodeAllowedCount}/${qrCodeRows.length} รายการ`}
+                                />
+                            )}
+
+                            {productsUnitRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Products unit capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ pos/productsUnit ${productsUnitAllowedCount}/${productsUnitRows.length} รายการ`}
+                                />
+                            )}
+
+                            {printSettingsRows.length > 0 && (
+                                <Alert
+                                    type="success"
+                                    showIcon
+                                    message="Print-setting capability matrix"
+                                    description={`Target นี้มีสิทธิ์ที่เกี่ยวกับ print-setting ${printSettingsAllowedCount}/${printSettingsRows.length} รายการ`}
+                                />
+                            )}
+
                             <Card size="small" title={`ส่วนหน้า (${selectedSystemLabel})`} style={{ borderRadius: 12 }}>
                                 <Table
                                     rowKey="key"
@@ -1440,6 +2250,19 @@ export default function PermissionsPage() {
                                     scroll={{ x: 980 }}
                                     loading={loading}
                                     locale={{ emptyText: `ไม่มีเมนูในระบบ ${selectedSystemLabel}` }}
+                                />
+                            </Card>
+
+                            <Card size="small" title={`ส่วน capability (${selectedSystemLabel})`} style={{ borderRadius: 12 }}>
+                                <Table
+                                    rowKey="key"
+                                    columns={featureColumns}
+                                    dataSource={featureRows}
+                                    pagination={false}
+                                    size="middle"
+                                    scroll={{ x: 900 }}
+                                    loading={loading}
+                                    locale={{ emptyText: `ไม่มี capability ในระบบ ${selectedSystemLabel}` }}
                                 />
                             </Card>
                         </Space>
@@ -1478,6 +2301,710 @@ export default function PermissionsPage() {
                                 message="ขอบเขตข้อมูล"
                                 description="ขอบเขตข้อมูลจะมีผลเมื่อเปิดสิทธิ์ ดู เท่านั้น"
                             />
+                            {selectedOrderWorkflowRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Order Workflow Governance Baseline</Text>
+                                        <Tag color="purple">{selectedOrderWorkflowRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedOrderWorkflowRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedOrderWorkflowRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedOrderWorkflowRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedOrderWorkflowRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Recommended Role Baseline</Text>
+                                        <Tag color="purple">{selectedRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedSettingsRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Settings Governance Baseline</Text>
+                                        <Tag color="blue">{selectedSettingsRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedSettingsRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedSettingsRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedSettingsRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedSettingsRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedCategoryRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Category Governance Baseline</Text>
+                                        <Tag color="geekblue">{selectedCategoryRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedCategoryRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedCategoryRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedCategoryRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedCategoryRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedDeliveryRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Delivery Governance Baseline</Text>
+                                        <Tag color="cyan">{selectedDeliveryRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedDeliveryRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedDeliveryRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedDeliveryRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedDeliveryRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedDiscountsRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Discount Governance Baseline</Text>
+                                        <Tag color="gold">{selectedDiscountsRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedDiscountsRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedDiscountsRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedDiscountsRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedDiscountsRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedPaymentMethodRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Payment Method Governance Baseline</Text>
+                                        <Tag color="green">{selectedPaymentMethodRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedPaymentMethodRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedPaymentMethodRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedPaymentMethodRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedPaymentMethodRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedProductsRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Products Governance Baseline</Text>
+                                        <Tag color="blue">{selectedProductsRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedProductsRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedProductsRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedProductsRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedProductsRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedShiftRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Shift Governance Baseline</Text>
+                                        <Tag color="blue">{selectedShiftRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedShiftRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedShiftRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedShiftRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedShiftRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedShiftHistoryRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Shift History Governance Baseline</Text>
+                                        <Tag color="blue">{selectedShiftHistoryRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedShiftHistoryRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedShiftHistoryRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedShiftHistoryRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedShiftHistoryRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedDashboardRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Dashboard Governance Baseline</Text>
+                                        <Tag color="magenta">{selectedDashboardRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedDashboardRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedDashboardRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedDashboardRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedDashboardRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedTablesRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Tables Governance Baseline</Text>
+                                        <Tag color="blue">{selectedTablesRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedTablesRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedTablesRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedTablesRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedTablesRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedToppingRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Topping Governance Baseline</Text>
+                                        <Tag color="orange">{selectedToppingRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedToppingRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedToppingRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedToppingRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedToppingRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedQrCodeRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>QR Code Governance Baseline</Text>
+                                        <Tag color="cyan">{selectedQrCodeRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedQrCodeRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedQrCodeRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedQrCodeRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedQrCodeRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedProductsUnitRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Products Unit Governance Baseline</Text>
+                                        <Tag color="cyan">{selectedProductsUnitRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedProductsUnitRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedProductsUnitRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedProductsUnitRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedProductsUnitRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {selectedToppingGroupRoleBlueprint && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Topping Group Governance Baseline</Text>
+                                        <Tag color="purple">{selectedToppingGroupRoleBlueprint.title}</Tag>
+                                        <Text type="secondary">{selectedToppingGroupRoleBlueprint.summary}</Text>
+                                        <Text strong>สิทธิ์ที่ควรมี</Text>
+                                        <Space wrap>
+                                            {selectedToppingGroupRoleBlueprint.allowed.map((item) => (
+                                                <Tag key={item} color="green">{item}</Tag>
+                                            ))}
+                                        </Space>
+                                        {selectedToppingGroupRoleBlueprint.denied.length > 0 && (
+                                            <>
+                                                <Text strong>สิทธิ์ที่ควรจำกัด</Text>
+                                                <Space wrap>
+                                                    {selectedToppingGroupRoleBlueprint.denied.map((item) => (
+                                                        <Tag key={item} color="red">{item}</Tag>
+                                                    ))}
+                                                </Space>
+                                            </>
+                                        )}
+                                    </Space>
+                                </Card>
+                            )}
+                            {orderWorkflowRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Order Workflow Governance</Text>
+                                        <Text type="secondary">Capability ของ orders, channels, serving board, order detail และ checkout ถูกแยกจาก page access เพื่อควบคุม search, filter, create order, line-item management, item-status update, workflow transition, checkout และ full-order cancel แบบราย action</Text>
+                                        <Space wrap>
+                                            {ORDER_WORKFLOW_CAPABILITIES.map((item) => {
+                                                const row = orderWorkflowRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {settingsRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Settings Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/settings ถูกแยกเป็น settings landing, branch identity/contact และ payment-account lifecycle เพื่อควบคุม search, filter, detail, create, activate และ delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {SETTINGS_CAPABILITIES.map((item) => {
+                                                const row = settingsRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {categoryRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Category Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/category ถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/edit/status/delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {CATEGORY_CAPABILITIES.map((item) => {
+                                                const row = categoryRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {productsRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Products Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/products ถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/catalog/pricing/structure/status/delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {PRODUCTS_CAPABILITIES.map((item) => {
+                                                const row = productsRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {shiftRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Shift Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/shift ถูกแยกออกจาก page access เพื่อควบคุม open shift, close preview, close shift, KPI summary, financial evidence, channel mix, top products และการเข้า shift history แบบราย action รวมถึง own-scope สำหรับ financial governance ของ employee</Text>
+                                        <Space wrap>
+                                            {SHIFT_CAPABILITIES.map((item) => {
+                                                const row = shiftRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {shiftHistoryRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Shift History Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/shiftHistory ถูกแยกออกจาก shifts.page เพื่อควบคุม search, filter, branch stats, summary modal และ financial amounts แบบราย action รวมถึง own-scope สำหรับ employee</Text>
+                                        <Space wrap>
+                                            {SHIFT_HISTORY_CAPABILITIES.map((item) => {
+                                                const row = shiftHistoryRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {dashboardRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Dashboard Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/dashboard ถูกแยกออกจาก page access เพื่อควบคุม KPI, advanced filters, channel mix, recent orders, order detail, export และ receipt print แบบราย action</Text>
+                                        <Space wrap>
+                                            {DASHBOARD_CAPABILITIES.map((item) => {
+                                                const row = dashboardRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {tablesRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Tables Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/tables ถูกแยกออกจาก page access เพื่อควบคุม search, filter, manager workspace, create, edit, status และ delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {TABLES_CAPABILITIES.map((item) => {
+                                                const row = tablesRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {toppingRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Topping Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/topping ถูกแยกออกจาก page access เพื่อควบคุม search, filter, manager workspace, create, catalog, pricing, status และ delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {TOPPING_CAPABILITIES.map((item) => {
+                                                const row = toppingRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {toppingGroupRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Topping Group Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/toppingGroup ถูกแยกออกจาก page access เพื่อควบคุม search, filter, manager workspace, create, edit, status และ delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {TOPPING_GROUP_CAPABILITIES.map((item) => {
+                                                const row = toppingGroupRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {qrCodeRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>QR Code Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/qr-code ถูกแยกจาก tables และ orders เพื่อควบคุม search, preview, customer link, rotate, export, bulk export, takeaway view และ takeaway rotate แบบราย action</Text>
+                                        <Space wrap>
+                                            {QR_CODE_CAPABILITIES.map((item) => {
+                                                const row = qrCodeRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {productsUnitRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Products Unit Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/productsUnit ถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/edit/status/delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {PRODUCTS_UNIT_CAPABILITIES.map((item) => {
+                                                const row = productsUnitRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {discountsRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Discount Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/discounts ถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/edit/pricing/status/delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {DISCOUNTS_CAPABILITIES.map((item) => {
+                                                const row = discountsRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {paymentMethodRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Payment Method Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/paymentMethod ถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/catalog/status/delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {PAYMENT_METHOD_CAPABILITIES.map((item) => {
+                                                const row = paymentMethodRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {deliveryRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Delivery Governance</Text>
+                                        <Text type="secondary">Capability ของ pos/delivery ถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/edit/status/delete แบบราย action</Text>
+                                        <Space wrap>
+                                            {DELIVERY_CAPABILITIES.map((item) => {
+                                                const row = deliveryRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canCreate || row.canUpdate || row.canDelete) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
+                            {printSettingsRows.length > 0 && (
+                                <Card size="small" style={{ borderRadius: 12 }}>
+                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                        <Text strong>Print-setting Governance</Text>
+                                        <Text type="secondary">Capability ระดับหน้าตั้งค่าการพิมพ์ถูกแยกออกจาก page access เพื่อควบคุมราย section ได้จริง</Text>
+                                        <Space wrap>
+                                            {PRINT_SETTINGS_CAPABILITIES.map((item) => {
+                                                const row = printSettingsRows.find((candidate) => candidate.resourceKey === item.resourceKey);
+                                                const allowed = row ? (row.canAccess || row.canView || row.canUpdate) : false;
+                                                return (
+                                                    <Tag key={item.resourceKey} color={allowed ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                                        {item.title}
+                                                    </Tag>
+                                                );
+                                            })}
+                                        </Space>
+                                    </Space>
+                                </Card>
+                            )}
                         </Space>
                     </Card>
 
@@ -1489,7 +3016,7 @@ export default function PermissionsPage() {
                                 value={simulateResource}
                                 onChange={setSimulateResource}
                                 options={rows.map((r) => ({
-                                    label: `[${getSystemGroup(r.resourceKey, r.route).toUpperCase()}] ${getResourceKind(r.resourceKey) === "menu" ? "เมนู" : "หน้า"} - ${resolvePermissionLabel(r.resourceKey, r.pageLabel)}`,
+                                    label: `[${getSystemGroup(r.resourceKey, r.route).toUpperCase()}] ${getResourceKind(r.resourceKey) === "menu" ? "เมนู" : getResourceKind(r.resourceKey) === "feature" ? "capability" : "หน้า"} - ${resolvePermissionLabel(r.resourceKey, r.pageLabel)}`,
                                     value: r.resourceKey,
                                 }))}
                                 showSearch

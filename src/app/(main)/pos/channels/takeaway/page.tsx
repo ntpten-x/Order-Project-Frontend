@@ -12,7 +12,7 @@ import {
     ShoppingOutlined,
     SyncOutlined,
 } from "@ant-design/icons";
-import { App, Button, Grid, Modal, Radio, Skeleton, Space, Tag, theme, Typography } from "antd";
+import { Alert, App, Button, Grid, Modal, Radio, Skeleton, Space, Tag, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
@@ -43,6 +43,7 @@ import { buildTableQrExportCanvas, downloadCanvasAsPng } from "../../../../../ut
 import { closePrintWindow, getPrintSettings, reservePrintWindow } from "../../../../../utils/print-settings/runtime";
 import { createTableQrPrintDocument } from "../../../../../utils/print-settings/tableQrPrintExport";
 import { getTakeawayCustomerLabel } from "../../../../../utils/orders";
+import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../../lib/rbac/order-workflow-capabilities";
 
 const { Text } = Typography;
 const EXPORT_QR_CANVAS_SIZE = 2048;
@@ -283,28 +284,66 @@ function OrderCard({
 export default function TakeawayPage() {
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateOrder = can("orders.page", "create");
+    const canViewChannels = can("orders.channels.feature", "view");
+    const canSearchOrders = can("orders.search.feature", "view");
+    const canFilterOrders = can("orders.filter.feature", "view");
+    const canCreateOrder = can("orders.channel_create.feature", "create");
+    const canViewTakeawayQr = can("qr_code.takeaway.feature", "view");
+    const canRotateTakeawayQr = can("qr_code.takeaway_rotate.feature", "update");
+    const canViewTakeawayCustomerLink = can("qr_code.takeaway_customer_link.feature", "view");
+    const canExportTakeawayQr = can("qr_code.takeaway_export.feature", "view");
 
     if (authLoading || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
-    if (!can("orders.page", "view")) {
+    if (!canViewChannels) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
         <RequireOpenShift>
-            <TakeawayContent canCreateOrder={canCreateOrder} />
+            <TakeawayContent
+                can={can}
+                roleName={String(user?.role ?? "")}
+                canSearchOrders={canSearchOrders}
+                canFilterOrders={canFilterOrders}
+                canCreateOrder={canCreateOrder}
+                canViewTakeawayQr={canViewTakeawayQr}
+                canRotateTakeawayQr={canRotateTakeawayQr}
+                canViewTakeawayCustomerLink={canViewTakeawayCustomerLink}
+                canExportTakeawayQr={canExportTakeawayQr}
+            />
         </RequireOpenShift>
     );
 }
 
 /* ── Main content ── */
 
-function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
+function TakeawayContent({
+    can,
+    roleName,
+    canSearchOrders,
+    canFilterOrders,
+    canCreateOrder,
+    canViewTakeawayQr,
+    canRotateTakeawayQr,
+    canViewTakeawayCustomerLink,
+    canExportTakeawayQr,
+}: {
+    can: (resourceKey: string, action?: "access" | "view" | "create" | "update" | "delete") => boolean;
+    roleName: string;
+    canSearchOrders: boolean;
+    canFilterOrders: boolean;
+    canCreateOrder: boolean;
+    canViewTakeawayQr: boolean;
+    canRotateTakeawayQr: boolean;
+    canViewTakeawayCustomerLink: boolean;
+    canExportTakeawayQr: boolean;
+}) {
     const router = useRouter();
     const { message } = App.useApp();
-    const { stats } = useChannelStats();
+    const canViewOrderSummary = can("orders.summary.feature", "view");
+    const { stats } = useChannelStats(canViewOrderSummary);
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { token } = theme.useToken();
@@ -316,6 +355,33 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const [isExportingQr, setIsExportingQr] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
     const [csrfToken, setCsrfToken] = useState("");
+    const selectedBlueprint = useMemo(
+        () =>
+            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
+                (item) => item.roleName.toLowerCase() === roleName.trim().toLowerCase()
+            ) ?? null,
+        [roleName]
+    );
+    const channelCapabilityKeys = useMemo(
+        () =>
+            new Set([
+                "orders.channels.feature",
+                "orders.search.feature",
+                "orders.filter.feature",
+                "orders.channel_create.feature",
+                "orders.detail.feature",
+            ]),
+        []
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            ORDER_WORKFLOW_CAPABILITIES.filter((item) => channelCapabilityKeys.has(item.resourceKey)).map((item) => ({
+                ...item,
+                allowed: can(item.resourceKey, item.action),
+            })),
+        [can, channelCapabilityKeys]
+    );
+    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
 
     const {
         page, setPage, pageSize, setPageSize, total, setTotal,
@@ -335,7 +401,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const { orders, total: apiTotal, isLoading, isFetching, error, refresh } = useChannelOrders({
         orderType: OrderType.TakeAway,
         page, limit: pageSize, statusFilter,
-        query: debouncedSearch, createdSort, enabled: isUrlReady,
+        query: debouncedSearch, createdSort, enabled: isUrlReady && canViewOrderSummary,
     });
 
     useEffect(() => { setTotal(apiTotal); }, [apiTotal, setTotal]);
@@ -371,6 +437,10 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     }, []);
 
     const handleOpenQrModal = async () => {
+        if (!canViewTakeawayQr) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้เปิด Takeaway QR");
+            return;
+        }
         setIsQrModalOpen(true);
         if (takeawayQr) return;
 
@@ -386,6 +456,10 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     };
 
     const handleRefreshQr = async () => {
+        if (!canRotateTakeawayQr) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้รีเฟรชหรือหมุน Takeaway QR");
+            return;
+        }
         setIsQrRefreshing(true);
         try {
             const rotateTakeawayQr = async (forceRefreshCsrf = false): Promise<TakeawayQrInfo> => {
@@ -419,6 +493,10 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     };
 
     const handleCopyQrLink = async () => {
+        if (!canViewTakeawayCustomerLink) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้คัดลอกลิงก์ลูกค้า");
+            return;
+        }
         if (!customerUrl) {
             message.warning("ยังไม่มีลิงก์ลูกค้า");
             return;
@@ -433,6 +511,10 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     };
 
     const handleOpenCustomerPage = () => {
+        if (!canViewTakeawayCustomerLink) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้เปิดหน้าลูกค้า");
+            return;
+        }
         if (!customerUrl) {
             message.warning("ยังไม่มีลิงก์ลูกค้า");
             return;
@@ -500,6 +582,10 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     }, [customerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
 
     const handleOpenExportModal = useCallback(() => {
+        if (!canExportTakeawayQr) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้ export Takeaway QR");
+            return;
+        }
         if (!customerUrl) {
             message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
             return;
@@ -507,9 +593,13 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
 
         setExportFormat("receipt");
         setIsExportModalOpen(true);
-    }, [customerUrl, message]);
+    }, [canExportTakeawayQr, customerUrl, message]);
 
     const handleConfirmExport = useCallback(async () => {
+        if (!canExportTakeawayQr) {
+            message.warning("สิทธิ์ของบทบาทนี้ไม่อนุญาตให้ export Takeaway QR");
+            return;
+        }
         if (!customerUrl) {
             message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
             return;
@@ -588,7 +678,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
         } finally {
             setIsExportingQr(false);
         }
-    }, [buildExportSource, customerUrl, exportFormat, message, openQrPrintExport, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
+    }, [buildExportSource, canExportTakeawayQr, customerUrl, exportFormat, message, openQrPrintExport, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
 
     // Responsive grid columns with minmax(0, 1fr) to prevent overflow
     const gridColumns = isMobile
@@ -659,6 +749,49 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                 />
 
                 <PageContainer style={{ flex: 1, width: '100%', maxWidth: '100%' }}>
+                    <Space direction="vertical" size={12} style={{ width: "100%", marginBottom: 16 }}>
+                        {selectedBlueprint ? (
+                            <Alert
+                                type="info"
+                                showIcon
+                                message={`Takeaway baseline for ${selectedBlueprint.roleName}`}
+                                description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
+                            />
+                        ) : null}
+                        <Alert
+                            type="success"
+                            showIcon
+                            message="Takeaway Capability Matrix"
+                            description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} takeaway capabilities enabled.`}
+                        />
+                        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))" }}>
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 16,
+                                        border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
+                                        background: item.allowed ? "#f0fdf4" : "#fff7f7",
+                                        padding: 14,
+                                    }}
+                                >
+                                    <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
+                                    <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
+                                    <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
+                                        {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        {(!canCreateOrder || !canViewTakeawayQr || !canExportTakeawayQr) ? (
+                            <Alert
+                                type="warning"
+                                showIcon
+                                message="Takeaway operations are partially restricted"
+                                description="Create-order, Takeaway QR, customer-link, rotate, and export actions are controlled separately by policy."
+                            />
+                        ) : null}
+                    </Space>
                     <PageStack gap={20} style={{ width: '100%' }}>
                         {/* ── Search + Filters ── */}
                         <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
@@ -667,6 +800,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                     placeholder="ค้นหา"
                                     value={searchText}
                                     onChange={(val) => setSearchText(val)}
+                                    disabled={!canSearchOrders}
                                 />
                                 <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                                     <Space wrap size={10}>
@@ -679,6 +813,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                             ]}
                                             value={filters.status as TakeawayListStatusFilter}
                                             onChange={(v) => updateFilter("status", v)}
+                                            disabled={!canFilterOrders}
                                             style={{ minWidth: 140 }}
                                         />
                                         <ModalSelector<CreatedSort>
@@ -689,6 +824,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                             ]}
                                             value={createdSort}
                                             onChange={(v) => setCreatedSort(v)}
+                                            disabled={!canFilterOrders}
                                             style={{ minWidth: 140 }}
                                         />
                                     </Space>

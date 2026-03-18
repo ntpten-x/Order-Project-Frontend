@@ -63,6 +63,11 @@ import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import { readCache, writeCache } from "../../../../../utils/pos/cache";
+import { useRoleGuard } from "../../../../../utils/pos/accessControl";
+import {
+    DASHBOARD_CAPABILITIES,
+    DASHBOARD_ROLE_BLUEPRINT,
+} from "../../../../../lib/rbac/dashboard-capabilities";
 
 const { Title, Text } = Typography;
 
@@ -171,11 +176,26 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const searchParams = useSearchParams();
     const { message: messageApi } = App.useApp();
     const { socket, isConnected } = useSocket();
-    const { user, loading: authLoading } = useAuth();
+    const { user } = useAuth();
+    const { isAuthorized, isChecking } = useRoleGuard({
+        requiredPermission: { resourceKey: "reports.sales.order_detail.feature", action: "access" },
+        redirectUnauthorized: "/pos/dashboard",
+        unauthorizedMessage: "คุณไม่มีสิทธิ์เข้าถึงรายละเอียดออเดอร์จาก dashboard",
+    });
     const { can, loading: permissionLoading } = useEffectivePermissions({
         enabled: Boolean(user?.id),
     });
-    const canViewDashboard = can("reports.sales.page", "view");
+    const canAccessDashboardOrderDetail = can("reports.sales.order_detail.feature", "access");
+    const canPrintDashboardReceipt = can("reports.sales.receipt.feature", "update");
+    const currentRoleName = String(user?.role ?? "").trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () => DASHBOARD_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () => DASHBOARD_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
+        [can]
+    );
     const orderId = params.id[0];
     const backPath = searchParams.get("from") === "dashboard" ? "/pos/dashboard" : "/pos/channels";
     const branchId = user?.branch_id || user?.branch?.id || "default";
@@ -221,7 +241,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     }, [shopProfileCacheKey]);
 
     useEffect(() => {
-        if (!canViewDashboard) return;
+        if (!canAccessDashboardOrderDetail) return;
 
         const cached = readCache<SalesOrder>(orderCacheKey, 60_000);
         if (cached) {
@@ -232,13 +252,13 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         }
 
         void fetchOrderDetail(false);
-    }, [canViewDashboard, fetchOrderDetail, orderCacheKey]);
+    }, [canAccessDashboardOrderDetail, fetchOrderDetail, orderCacheKey]);
 
     useEffect(() => {
-        if (canViewDashboard) {
+        if (canAccessDashboardOrderDetail) {
             void fetchShopProfile();
         }
-    }, [canViewDashboard, fetchShopProfile]);
+    }, [canAccessDashboardOrderDetail, fetchShopProfile]);
 
     useEffect(() => {
         primePrintResources();
@@ -246,7 +266,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     useRealtimeRefresh({
         socket,
-        enabled: canViewDashboard,
+        enabled: canAccessDashboardOrderDetail,
         events: [
             RealtimeEvents.orders.update,
             RealtimeEvents.orders.delete,
@@ -268,7 +288,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     useRealtimeRefresh({
         socket,
-        enabled: canViewDashboard,
+        enabled: canAccessDashboardOrderDetail,
         events: [RealtimeEvents.shopProfile.update],
         debounceMs: 700,
         onRefresh: () => {
@@ -288,6 +308,10 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const statusMeta = order ? getStatusMeta(order.status) : null;
 
     const handlePrint = () => {
+        if (!canPrintDashboardReceipt) {
+            messageApi.warning("บทบาทนี้ไม่มีสิทธิ์พิมพ์ใบเสร็จจาก dashboard");
+            return;
+        }
         if (!order) return;
 
         const reservedPrintWindow = reservePrintWindow(`Receipt #${order.order_no || ""}`.trim());
@@ -307,7 +331,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         });
     };
 
-    if (authLoading || permissionLoading) {
+    if (isChecking || permissionLoading) {
         return (
             <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
                 <Spin size="large" />
@@ -315,7 +339,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         );
     }
 
-    if (!user || !canViewDashboard) {
+    if (!user || !isAuthorized || !canAccessDashboardOrderDetail) {
         return (
             <AccessGuardFallback
                 message="คุณไม่มีสิทธิ์เข้าถึงรายละเอียดออเดอร์จากรายงาน"
@@ -361,7 +385,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         <Tag color={statusMeta?.color} style={{ margin: 0 }} icon={statusMeta?.icon}>
                             {statusMeta?.label}
                         </Tag>
-                        <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+                        <Button icon={<PrinterOutlined />} onClick={handlePrint} disabled={!canPrintDashboardReceipt}>
                             {!isMobile ? "พิมพ์ใบเสร็จ" : ""}
                         </Button>
                     </Space>
@@ -370,6 +394,36 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
             <PageContainer maxWidth={1260}>
                 <PageStack gap={14}>
+                    {selectedRoleBlueprint ? (
+                        <Alert
+                            type="info"
+                            showIcon
+                            message={`Dashboard order baseline for ${selectedRoleBlueprint.roleName}`}
+                            description={`${selectedRoleBlueprint.summary} | Allowed: ${selectedRoleBlueprint.allowed.join(", ")}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(", ")}` : ""}`}
+                        />
+                    ) : null}
+
+                    <Card size="small" style={{ borderRadius: 18 }}>
+                        <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                            <Text strong>Dashboard Order Governance</Text>
+                            <Text type="secondary">
+                                Order detail access and receipt printing are separated so receipt evidence can be restricted independently from page access.
+                            </Text>
+                            <Space wrap>
+                                {capabilityMatrix
+                                    .filter((item) =>
+                                        item.resourceKey === "reports.sales.order_detail.feature" ||
+                                        item.resourceKey === "reports.sales.receipt.feature"
+                                    )
+                                    .map((item) => (
+                                        <Tag key={item.resourceKey} color={item.enabled ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
+                                            {item.title}
+                                        </Tag>
+                                    ))}
+                            </Space>
+                        </Space>
+                    </Card>
+
                     <PageSection>
                         <Row gutter={[12, 12]}>
                             <Col xs={24} md={8}>

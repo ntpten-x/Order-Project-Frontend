@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
+import { Alert, message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     TagsOutlined,
     PlusOutlined,
@@ -33,6 +33,7 @@ import { SearchInput } from '@/components/ui/input/SearchInput';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { CATEGORY_CAPABILITIES, CATEGORY_ROLE_BLUEPRINT } from '../../../../lib/rbac/category-capabilities';
 
 const { Text } = Typography;
 
@@ -47,7 +48,8 @@ const CATEGORY_CACHE_TTL_MS = 60 * 1000;
 
 interface CategoryCardProps {
     category: Category;
-    canUpdate: boolean;
+    canOpenManager: boolean;
+    canToggleStatus: boolean;
     canDelete: boolean;
     onEdit: (category: Category) => void;
     onDelete: (category: Category) => void;
@@ -72,7 +74,8 @@ const CategoryCard = ({
     onToggleActive,
     updatingStatusId,
     deletingId,
-    canUpdate,
+    canOpenManager,
+    canToggleStatus,
     canDelete,
 }: CategoryCardProps) => {
     return (
@@ -81,10 +84,10 @@ const CategoryCard = ({
             style={{
                 ...pageStyles.categoryCard(category.is_active),
                 borderRadius: 16,
-                cursor: canUpdate ? 'pointer' : 'default',
+                cursor: canOpenManager ? 'pointer' : 'default',
             }}
             onClick={() => {
-                if (!canUpdate) return;
+                if (!canOpenManager) return;
                 onEdit(category);
             }}
         >
@@ -131,14 +134,14 @@ const CategoryCard = ({
                         size="small"
                         checked={category.is_active}
                         loading={updatingStatusId === category.id}
-                        disabled={!canUpdate || deletingId === category.id}
+                        disabled={!canToggleStatus || deletingId === category.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
-                            if (!canUpdate) return;
+                            if (!canToggleStatus) return;
                             onToggleActive(category, checked);
                         }}
                     />
-                    {canUpdate ? (
+                    {canOpenManager ? (
                         <Button
                             type="text"
                             icon={<EditOutlined />}
@@ -217,9 +220,29 @@ export default function CategoryPage() {
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateCategory = can('category.page', 'create');
-    const canUpdateCategory = can('category.page', 'update');
-    const canDeleteCategory = can('category.page', 'delete');
+    const canViewCategory = can('category.page', 'view');
+    const canSearchCategory = can('category.search.feature', 'view');
+    const canFilterCategory = can('category.filter.feature', 'view');
+    const canOpenCategoryManager = can('category.manager.feature', 'access');
+    const canCreateCategory = can('category.page', 'create') && can('category.create.feature', 'create') && canOpenCategoryManager;
+    const canEditCategory = can('category.page', 'update') && can('category.edit.feature', 'update') && canOpenCategoryManager;
+    const canToggleCategoryStatus = can('category.page', 'update') && can('category.status.feature', 'update') && canOpenCategoryManager;
+    const canDeleteCategory = can('category.page', 'delete') && can('category.delete.feature', 'delete') && canOpenCategoryManager;
+    const canOpenCategoryEditWorkspace = canOpenCategoryManager && (canEditCategory || canToggleCategoryStatus || canDeleteCategory);
+    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
+    const selectedRoleBlueprint = useMemo(
+        () =>
+            CATEGORY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
+        [currentRoleName]
+    );
+    const capabilityMatrix = useMemo(
+        () =>
+            CATEGORY_CAPABILITIES.map((item) => ({
+                ...item,
+                enabled: can(item.resourceKey, item.action),
+            })),
+        [can]
+    );
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -263,6 +286,24 @@ export default function CategoryPage() {
         });
     }, [categories, isDefaultListView, loading, total]);
 
+    useEffect(() => {
+        if (!canSearchCategory && searchText) {
+            setSearchText('');
+        }
+    }, [canSearchCategory, searchText, setSearchText]);
+
+    useEffect(() => {
+        if (!canFilterCategory && filters.status !== 'all') {
+            updateFilter('status', 'all');
+        }
+    }, [canFilterCategory, filters.status, updateFilter]);
+
+    useEffect(() => {
+        if (!canFilterCategory && createdSort !== DEFAULT_CREATED_SORT) {
+            setCreatedSort(DEFAULT_CREATED_SORT);
+        }
+    }, [canFilterCategory, createdSort, setCreatedSort]);
+
     const fetchCategories = useCallback(
         async (options?: { background?: boolean }) => {
             if (!isAuthorized) return;
@@ -281,6 +322,13 @@ export default function CategoryPage() {
 
             try {
                 const params = getQueryParams();
+                if (!canSearchCategory) {
+                    params.delete('q');
+                }
+                if (!canFilterCategory) {
+                    params.delete('status');
+                    params.delete('sort_created');
+                }
                 const response = await fetch(`/api/pos/category?${params.toString()}`, {
                     cache: 'no-store',
                     signal: controller.signal,
@@ -308,7 +356,7 @@ export default function CategoryPage() {
                 }
             }
         },
-        [getQueryParams, isAuthorized, setTotal]
+        [canFilterCategory, canSearchCategory, getQueryParams, isAuthorized, setTotal]
     );
 
     useEffect(() => {
@@ -341,7 +389,7 @@ export default function CategoryPage() {
     };
 
     const handleEdit = (category: Category) => {
-        if (!canUpdateCategory) {
+        if (!canOpenCategoryEditWorkspace) {
             message.warning('คุณไม่มีสิทธิ์แก้ไขหมวดหมู่');
             return;
         }
@@ -396,7 +444,7 @@ export default function CategoryPage() {
     };
 
     const handleToggleActive = async (category: Category, next: boolean) => {
-        if (!canUpdateCategory) {
+        if (!canToggleCategoryStatus) {
             message.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะหมวดหมู่');
             return;
         }
@@ -461,11 +509,62 @@ export default function CategoryPage() {
 
             <PageContainer>
                 <PageStack>
+                    <Alert
+                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
+                        showIcon
+                        message={selectedRoleBlueprint?.title || 'Category permissions'}
+                        description={
+                            selectedRoleBlueprint
+                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
+                                : canViewCategory
+                                    ? 'บัญชีนี้สามารถเปิดหน้าหมวดหมู่สินค้าได้'
+                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าหมวดหมู่สินค้า'
+                        }
+                    />
+
+                    <PageSection
+                        title="Category Capability Matrix"
+                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
+                    >
+                        <div
+                            style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                                gap: 12,
+                            }}
+                        >
+                            {capabilityMatrix.map((item) => (
+                                <div
+                                    key={item.resourceKey}
+                                    style={{
+                                        borderRadius: 18,
+                                        padding: 16,
+                                        border: item.enabled ? '1px solid rgba(14, 165, 233, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
+                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%)' : '#ffffff',
+                                        boxShadow: item.enabled ? '0 14px 32px rgba(14, 165, 233, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
+                                    }}
+                                >
+                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
+                                        <Space wrap>
+                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
+                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
+                                                {item.securityLevel}
+                                            </Tag>
+                                        </Space>
+                                        <Text strong>{item.title}</Text>
+                                        <Text type="secondary">{item.description}</Text>
+                                    </Space>
+                                </div>
+                            ))}
+                        </div>
+                    </PageSection>
+
                     <SearchBar>
                         <SearchInput
                             placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
+                            disabled={!canSearchCategory}
                         />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
@@ -479,6 +578,7 @@ export default function CategoryPage() {
                                     value={filters.status}
                                     onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterCategory}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เรียงลำดับ"
@@ -489,10 +589,20 @@ export default function CategoryPage() {
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     style={{ minWidth: 120 }}
+                                    disabled={!canFilterCategory}
                                 />
                             </Space>
                         </Space>
                     </SearchBar>
+
+                    {!canSearchCategory || !canFilterCategory ? (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            message="บาง control ถูกล็อกตามสิทธิ์"
+                            description={`Search ${canSearchCategory ? 'พร้อมใช้งาน' : 'ถูกปิด'} | Filter/Sort ${canFilterCategory ? 'พร้อมใช้งาน' : 'ถูกปิด'}`}
+                        />
+                    ) : null}
 
                     <PageSection
                         title="รายการหมวดหมู่"
@@ -500,6 +610,10 @@ export default function CategoryPage() {
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                                <Tag color={canCreateCategory ? 'green' : 'default'}>create</Tag>
+                                <Tag color={canEditCategory ? 'green' : 'default'}>edit</Tag>
+                                <Tag color={canToggleCategoryStatus ? 'green' : 'default'}>status</Tag>
+                                <Tag color={canDeleteCategory ? 'red' : 'default'}>delete</Tag>
                             </Space>
                         }
                     >
@@ -523,7 +637,8 @@ export default function CategoryPage() {
                                         onToggleActive={handleToggleActive}
                                         updatingStatusId={updatingStatusId}
                                         deletingId={deletingId}
-                                        canUpdate={canUpdateCategory}
+                                        canOpenManager={canOpenCategoryEditWorkspace}
+                                        canToggleStatus={canToggleCategoryStatus}
                                         canDelete={canDeleteCategory}
                                     />
                                 ))}
@@ -546,7 +661,9 @@ export default function CategoryPage() {
                                 description={
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
-                                        : 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งานเมนูสินค้าใน POS'
+                                        : canCreateCategory
+                                            ? 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งานเมนูสินค้าใน POS'
+                                            : 'บัญชีนี้ดูรายการได้ แต่ไม่สามารถสร้างหมวดหมู่ใหม่'
                                 }
                             />
                         )}
