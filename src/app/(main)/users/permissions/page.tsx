@@ -1,6 +1,7 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
     Alert,
     Badge,
@@ -34,6 +35,7 @@ import {
     SafetyCertificateOutlined,
     UserOutlined,
     ReloadOutlined,
+    ArrowLeftOutlined,
 } from "@ant-design/icons";
 import { roleService } from "../../../../services/roles.service";
 import { permissionsService } from "../../../../services/permissions.service";
@@ -487,6 +489,7 @@ function resolvePageName(row: PermissionRow): string {
 
 
 export default function PermissionsPage() {
+    const router = useRouter();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { user: authUser } = useAuth();
@@ -1669,6 +1672,14 @@ export default function PermissionsPage() {
                 <Col span={24}>
                     <Card bordered={false}>
                         <Space direction="vertical" size={4} style={{ width: "100%" }}>
+                            <Button 
+                                type="text" 
+                                icon={<ArrowLeftOutlined />} 
+                                onClick={() => router.push('/users')}
+                                className="mb-2 pl-0 hover:bg-transparent hover:text-blue-600 self-start"
+                            >
+                                กลับหน้าจัดการผู้ใช้
+                            </Button>
                             <Space align="center" wrap>
                                 <SafetyCertificateOutlined style={{ color: "#2563eb", fontSize: 20 }} />
                                 <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>

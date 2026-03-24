@@ -6,6 +6,7 @@ import {
     Alert,
     Button,
     Card,
+    Drawer,
     Grid,
     Modal,
     Pagination,
@@ -19,6 +20,7 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     ClockCircleOutlined as ClockIcon,
+    CloseOutlined,
     FieldTimeOutlined,
     HistoryOutlined,
     LeftOutlined,
@@ -203,107 +205,138 @@ function ShiftHistoryCalendarMonth({
     month,
     draftRange,
     onSelect,
+    isMobile,
 }: {
     month: Dayjs;
     draftRange: DraftDateRange;
     onSelect: (value: Dayjs) => void;
+    isMobile?: boolean;
 }) {
     const days = useMemo(() => buildMonthDays(month), [month]);
     const [start, end] = draftRange;
+    const cellSize = isMobile ? 46 : 44;
 
     return (
-        <div
-            style={{
-                border: '1px solid #E2E8F0',
-                borderRadius: 20,
-                padding: 16,
-                background: 'linear-gradient(180deg, #FFFFFF 0%, #F8FAFC 100%)',
-                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.7)',
-            }}
-        >
-            <div
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    marginBottom: 12,
-                }}
-            >
-                <Text strong style={{ fontSize: 15, color: '#0F172A' }}>
-                    {month.format('MMMM YYYY')}
-                </Text>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                    แตะเพื่อเลือก
-                </Text>
-            </div>
-
+        <div style={{ padding: isMobile ? '0 2px' : 0 }}>
+            {/* Weekday headers */}
             <div
                 style={{
                     display: 'grid',
                     gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
-                    gap: 6,
+                    gap: 2,
+                    marginBottom: 8,
+                    paddingBottom: 8,
+                    borderBottom: '1px solid #F1F5F9',
                 }}
             >
-                {CALENDAR_WEEKDAYS.map((weekday) => (
+                {CALENDAR_WEEKDAYS.map((weekday, idx) => (
                     <div
                         key={`${month.format('YYYY-MM')}-${weekday}`}
                         style={{
                             textAlign: 'center',
-                            fontSize: 12,
-                            fontWeight: 700,
-                            color: '#64748B',
-                            paddingBottom: 4,
+                            fontSize: 11,
+                            fontWeight: 600,
+                            color: idx === 0 || idx === 6 ? '#94A3B8' : '#64748B',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
                         }}
                     >
                         {weekday}
                     </div>
                 ))}
+            </div>
 
+            {/* Day cells */}
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(7, minmax(0, 1fr))',
+                    gap: 2,
+                }}
+            >
                 {days.map((day) => {
                     const sameMonth = day.month() === month.month();
                     const isToday = day.isSame(thaiNow(), 'day');
                     const isStart = start ? day.isSame(start, 'day') : false;
                     const isEnd = end ? day.isSame(end, 'day') : false;
-                    const isBetween = start && end ? day.isAfter(start, 'day') && day.isBefore(end, 'day') : false;
+                    const isBetween =
+                        start && end
+                            ? day.isAfter(start, 'day') && day.isBefore(end, 'day')
+                            : false;
+                    const isSelected = isStart || isEnd;
                     const isSingleSelected = isStart && isEnd;
 
+                    const rangeBg = isBetween
+                        ? '#DBEAFE'
+                        : isStart && end && !isSingleSelected
+                            ? 'linear-gradient(90deg, transparent 0%, transparent 50%, #DBEAFE 50%, #DBEAFE 100%)'
+                            : isEnd && start && !isSingleSelected
+                                ? 'linear-gradient(90deg, #DBEAFE 0%, #DBEAFE 50%, transparent 50%, transparent 100%)'
+                                : 'transparent';
+
                     return (
-                        <button
+                        <div
                             key={day.format('YYYY-MM-DD')}
-                            type="button"
-                            aria-label={day.format('YYYY-MM-DD')}
-                            onClick={() => onSelect(day)}
                             style={{
-                                height: 44,
-                                borderRadius: isSingleSelected
-                                    ? 14
-                                    : isStart
-                                        ? '14px 8px 8px 14px'
-                                        : isEnd
-                                            ? '8px 14px 14px 8px'
-                                            : 12,
-                                border: isStart || isEnd
-                                    ? '1px solid transparent'
-                                    : isToday
-                                        ? '1px solid #BFDBFE'
-                                        : '1px solid transparent',
-                                background: isStart || isEnd
-                                    ? 'linear-gradient(135deg, #0F766E 0%, #2563EB 100%)'
-                                    : isBetween
-                                        ? '#DBEAFE'
-                                        : isToday
-                                            ? '#EFF6FF'
-                                            : 'transparent',
-                                color: isStart || isEnd ? '#FFFFFF' : sameMonth ? '#0F172A' : '#94A3B8',
-                                cursor: 'pointer',
-                                fontSize: 14,
-                                fontWeight: isStart || isEnd || isToday ? 700 : 500,
-                                transition: 'all 0.18s ease',
-                                boxShadow: isStart || isEnd ? '0 10px 20px rgba(37, 99, 235, 0.18)' : 'none',
+                                background: rangeBg,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                minHeight: cellSize,
                             }}
                         >
-                            {day.date()}
-                        </button>
+                            <button
+                                type="button"
+                                aria-label={day.format('YYYY-MM-DD')}
+                                onClick={() => onSelect(day)}
+                                style={{
+                                    width: cellSize - 4,
+                                    height: cellSize - 4,
+                                    borderRadius: isSelected ? '50%' : 12,
+                                    border: 'none',
+                                    background: isSelected
+                                        ? 'linear-gradient(135deg, #0D9488 0%, #2563EB 100%)'
+                                        : isToday
+                                            ? '#F0F9FF'
+                                            : 'transparent',
+                                    color: isSelected
+                                        ? '#FFFFFF'
+                                        : !sameMonth
+                                            ? '#CBD5E1'
+                                            : isToday
+                                                ? '#0369A1'
+                                                : '#1E293B',
+                                    cursor: 'pointer',
+                                    fontSize: isMobile ? 15 : 14,
+                                    fontWeight: isSelected ? 700 : isToday ? 700 : 500,
+                                    transition: 'all 0.15s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    boxShadow: isSelected
+                                        ? '0 4px 14px rgba(13, 148, 136, 0.35)'
+                                        : 'none',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: 2,
+                                    position: 'relative',
+                                    transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                                }}
+                            >
+                                <span>{day.date()}</span>
+                                {isToday && !isSelected ? (
+                                    <span
+                                        style={{
+                                            width: 4,
+                                            height: 4,
+                                            borderRadius: '50%',
+                                            background: 'linear-gradient(135deg, #0D9488, #2563EB)',
+                                            position: 'absolute',
+                                            bottom: 5,
+                                        }}
+                                    />
+                                ) : null}
+                            </button>
+                        </div>
                     );
                 })}
             </div>
@@ -403,84 +436,120 @@ function ShiftHistoryDateRangeDialog({
     const hasInvalidRange = Boolean(draftStart && draftEnd && draftStart.isAfter(draftEnd));
     const canApplyDraft = Boolean(draftRange && !hasInvalidRange);
 
-    return (
-        <Modal
-            title="เลือกช่วงเวลา"
-            open={open}
-            onCancel={onClose}
-            width={isMobile ? 'calc(100vw - 16px)' : showDualMonth ? 1040 : 760}
-            style={{ top: isMobile ? 8 : 32 }}
-            zIndex={1600}
-            footer={[
-                <Button key="cancel" onClick={onClose}>
-                    ยกเลิก
-                </Button>,
-                <Button
-                    key="apply"
-                    type="primary"
-                    disabled={!canApplyDraft}
-                    onClick={() => {
-                        if (!draftRange) return;
-                        onApply(draftRange, 'custom');
-                    }}
-                >
-                    ใช้ช่วงเวลานี้
-                </Button>,
-            ]}
-            destroyOnClose
+    /* ─── Shared inner content ─── */
+    const dialogContent = (
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                background: '#FFFFFF',
+            }}
         >
+            {/* ── Header: Range summary ── */}
             <div
                 style={{
-                    display: 'grid',
-                    gap: 16,
-                    maxHeight: isMobile ? 'calc(100dvh - 176px)' : 'calc(100dvh - 220px)',
-                    overflowY: 'auto',
-                    paddingRight: isMobile ? 0 : 4,
+                    padding: isMobile ? '20px 16px 16px' : '24px 28px 18px',
+                    borderBottom: '1px solid #F1F5F9',
+                    background: 'linear-gradient(135deg, #F0FDFA 0%, #EFF6FF 50%, #FDF4FF 100%)',
+                    flexShrink: 0,
                 }}
             >
-                <div
-                    style={{
-                        display: 'grid',
-                        gap: 6,
-                        padding: 16,
-                        borderRadius: 20,
-                        background: 'linear-gradient(135deg, rgba(15,118,110,0.08) 0%, rgba(37,99,235,0.08) 100%)',
-                        border: '1px solid rgba(148, 163, 184, 0.18)',
-                    }}
-                >
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        ช่วงเวลาที่เลือกตอนนี้
-                    </Text>
-                    <Text strong style={{ fontSize: isMobile ? 16 : 18, color: '#0F172A' }}>
-                        {draftRange ? formatDateRangeLabel(draftRange) : 'ทั้งหมด'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        {!draftStart && !draftEnd
-                            ? 'เลือกทั้งหมด หรือระบุวันและเวลาเอง'
-                            : draftStart && !draftEnd
-                                ? 'เลือกวันสิ้นสุดต่อเพื่อสร้างช่วงเวลา'
-                                : draftRange && hasInvalidRange
-                                    ? 'เวลาเริ่มต้นต้องไม่มากกว่าเวลาสิ้นสุด'
-                                    : draftRange
-                                        ? `${countRangeDays(draftRange)} วัน • ${formatRangeTimeLabel(draftRange)}`
-                                        : 'แตะวันเริ่มต้น แล้วแตะวันสิ้นสุด'}
-                    </Text>
-                </div>
-
-                {hasInvalidRange ? (
-                    <Alert
-                        type="warning"
-                        showIcon
-                        message="ช่วงเวลาไม่ถูกต้อง"
-                        description="กรุณาปรับเวลาเริ่มต้นและเวลาสิ้นสุดให้เรียงลำดับถูกต้อง"
-                    />
+                {isMobile ? (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                        <span style={{ fontSize: 18, fontWeight: 700, color: '#0F172A' }}>เลือกช่วงเวลา</span>
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="close-date-range-dialog"
+                            style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: '50%',
+                                border: 'none',
+                                background: 'rgba(15, 23, 42, 0.06)',
+                                cursor: 'pointer',
+                                display: 'grid',
+                                placeItems: 'center',
+                                color: '#64748B',
+                                fontSize: 16,
+                            }}
+                        >
+                            <CloseOutlined />
+                        </button>
+                    </div>
                 ) : null}
 
                 <div
                     style={{
-                        display: 'grid',
-                        gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(5, minmax(0, 1fr))',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12,
+                    }}
+                >
+                    <div
+                        style={{
+                            width: 4,
+                            alignSelf: 'stretch',
+                            borderRadius: 4,
+                            background: 'linear-gradient(180deg, #0D9488 0%, #2563EB 100%)',
+                            flexShrink: 0,
+                        }}
+                    />
+                    <div style={{ display: 'grid', gap: 2, flex: 1, minWidth: 0 }}>
+                        <Text
+                            strong
+                            style={{
+                                fontSize: isMobile ? 17 : 20,
+                                color: '#0F172A',
+                                lineHeight: 1.3,
+                            }}
+                        >
+                            {draftRange ? formatDateRangeLabel(draftRange) : 'ทั้งหมด'}
+                        </Text>
+                        <Text
+                            style={{
+                                fontSize: 13,
+                                color: hasInvalidRange ? '#DC2626' : '#64748B',
+                            }}
+                        >
+                            {!draftStart && !draftEnd
+                                ? 'เลือกทั้งหมด หรือระบุวันและเวลาเอง'
+                                : draftStart && !draftEnd
+                                    ? '👆 แตะวันที่สิ้นสุดเพื่อสร้างช่วง'
+                                    : hasInvalidRange
+                                        ? '⚠️ เวลาเริ่มต้นต้องไม่มากกว่าเวลาสิ้นสุด'
+                                        : draftRange
+                                            ? `${countRangeDays(draftRange)} วัน · ${formatRangeTimeLabel(draftRange)}`
+                                            : 'แตะวันเริ่มต้น แล้วแตะวันสิ้นสุด'}
+                        </Text>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Scrollable body ── */}
+            <div
+                style={{
+                    flex: 1,
+                    overflowY: 'auto',
+                    overflowX: 'hidden',
+                    padding: isMobile ? '12px 12px 0' : '20px 28px 0',
+                    display: 'grid',
+                    gap: isMobile ? 14 : 18,
+                    alignContent: 'start',
+                    WebkitOverflowScrolling: 'touch',
+                }}
+            >
+                {/* Quick presets - horizontal scroll on mobile */}
+                <div
+                    style={{
+                        display: 'flex',
                         gap: 8,
+                        overflowX: isMobile ? 'auto' : 'visible',
+                        flexWrap: isMobile ? 'nowrap' : 'wrap',
+                        paddingBottom: 4,
+                        scrollbarWidth: 'none',
+                        msOverflowStyle: 'none',
                     }}
                 >
                     {quickPresets.map((option) => {
@@ -491,15 +560,25 @@ function ShiftHistoryDateRangeDialog({
                                 type="button"
                                 onClick={() => onApply(resolveShiftHistoryPresetRange(option.value), option.value)}
                                 style={{
-                                    minHeight: 48,
-                                    borderRadius: 14,
-                                    border: selected ? '1px solid rgba(37,99,235,0.35)' : '1px solid #E2E8F0',
-                                    background: selected ? '#EFF6FF' : '#FFFFFF',
-                                    color: selected ? '#1D4ED8' : '#334155',
-                                    fontWeight: 700,
+                                    height: 40,
+                                    borderRadius: 20,
+                                    border: selected
+                                        ? '1.5px solid #0D9488'
+                                        : '1px solid #E2E8F0',
+                                    background: selected
+                                        ? 'linear-gradient(135deg, #F0FDFA 0%, #EFF6FF 100%)'
+                                        : '#FFFFFF',
+                                    color: selected ? '#0D9488' : '#475569',
+                                    fontWeight: selected ? 700 : 600,
                                     fontSize: 13,
                                     cursor: 'pointer',
-                                    padding: '0 12px',
+                                    padding: '0 18px',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
+                                    transition: 'all 0.15s ease',
+                                    boxShadow: selected
+                                        ? '0 2px 8px rgba(13, 148, 136, 0.15)'
+                                        : '0 1px 2px rgba(15, 23, 42, 0.04)',
                                 }}
                             >
                                 {option.label}
@@ -508,31 +587,43 @@ function ShiftHistoryDateRangeDialog({
                     })}
                 </div>
 
+                {/* Date/time input cards */}
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, minmax(0, 1fr))',
-                        gap: 12,
+                        gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+                        gap: isMobile ? 8 : 12,
                     }}
                 >
                     {([
-                        { key: 'start' as const, label: 'วันเริ่มต้น', dateValue: draftDates[0], timeValue: draftTimes.start },
-                        { key: 'end' as const, label: 'วันสิ้นสุด', dateValue: draftDates[1], timeValue: draftTimes.end },
+                        { key: 'start' as const, label: 'เริ่มต้น', dateValue: draftDates[0], timeValue: draftTimes.start, accent: '#0D9488' },
+                        { key: 'end' as const, label: 'สิ้นสุด', dateValue: draftDates[1], timeValue: draftTimes.end, accent: '#2563EB' },
                     ]).map((item) => (
                         <div
                             key={item.key}
                             style={{
                                 display: 'grid',
-                                gap: 10,
-                                padding: 14,
-                                borderRadius: 18,
-                                border: '1px solid #E2E8F0',
-                                background: '#FFFFFF',
+                                gap: 8,
+                                padding: isMobile ? 10 : 14,
+                                borderRadius: 16,
+                                border: `1px solid ${item.accent}22`,
+                                background: `${item.accent}06`,
                             }}
                         >
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {item.label}
-                            </Text>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                <div
+                                    style={{
+                                        width: 6,
+                                        height: 6,
+                                        borderRadius: '50%',
+                                        background: item.accent,
+                                        flexShrink: 0,
+                                    }}
+                                />
+                                <Text style={{ fontSize: 11, fontWeight: 600, color: item.accent, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                    {item.label}
+                                </Text>
+                            </div>
                             <input
                                 type="date"
                                 value={item.dateValue ? item.dateValue.format('YYYY-MM-DD') : ''}
@@ -541,25 +632,25 @@ function ShiftHistoryDateRangeDialog({
                                     width: '100%',
                                     border: 'none',
                                     outline: 'none',
-                                    fontSize: 16,
+                                    fontSize: isMobile ? 14 : 15,
                                     fontWeight: 700,
                                     color: '#0F172A',
                                     background: 'transparent',
+                                    padding: 0,
                                 }}
                             />
                             <div
                                 style={{
-                                    display: 'grid',
-                                    gap: 6,
-                                    padding: 12,
-                                    borderRadius: 14,
-                                    background: '#F8FAFC',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 8,
+                                    padding: '6px 10px',
+                                    borderRadius: 10,
+                                    background: '#FFFFFF',
                                     border: '1px solid #E2E8F0',
                                 }}
                             >
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                    เวลา
-                                </Text>
+                                <CalendarOutlined style={{ fontSize: 13, color: '#94A3B8' }} />
                                 <input
                                     type="time"
                                     step={60}
@@ -569,10 +660,11 @@ function ShiftHistoryDateRangeDialog({
                                         width: '100%',
                                         border: 'none',
                                         outline: 'none',
-                                        fontSize: 18,
+                                        fontSize: isMobile ? 15 : 16,
                                         fontWeight: 700,
                                         color: '#0F172A',
                                         background: 'transparent',
+                                        padding: 0,
                                     }}
                                 />
                             </div>
@@ -580,37 +672,238 @@ function ShiftHistoryDateRangeDialog({
                     ))}
                 </div>
 
+                {/* Month navigation + calendar */}
                 <div
                     style={{
                         display: 'grid',
-                        gridTemplateColumns: showDualMonth ? 'repeat(2, minmax(0, 1fr))' : '1fr',
-                        gap: 12,
+                        gridTemplateColumns: showDualMonth
+                            ? 'repeat(2, minmax(0, 1fr))'
+                            : '1fr',
+                        gap: isMobile ? 0 : 24,
                     }}
                 >
-                    <Button icon={<LeftOutlined />} onClick={() => setVisibleMonth((current) => current.subtract(1, 'month'))}>
-                        เดือนก่อน
-                    </Button>
-                    <Text type="secondary" style={{ fontSize: 12, textAlign: 'center' }}>
-                        เลือกช่วงเวลาได้โดยแตะวันเริ่มต้นและวันสิ้นสุด
-                    </Text>
-                    <Button icon={<RightOutlined />} onClick={() => setVisibleMonth((current) => current.add(1, 'month'))}>
-                        เดือนถัดไป
-                    </Button>
-                </div>
+                    {/* First month */}
+                    <div>
+                        <div
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                marginBottom: 12,
+                                padding: '0 4px',
+                            }}
+                        >
+                            <button
+                                type="button"
+                                aria-label="previous-month"
+                                onClick={() => setVisibleMonth((current) => current.subtract(1, 'month'))}
+                                style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: '50%',
+                                    border: '1px solid #E2E8F0',
+                                    background: '#FFFFFF',
+                                    cursor: 'pointer',
+                                    display: 'grid',
+                                    placeItems: 'center',
+                                    color: '#475569',
+                                    fontSize: 14,
+                                    transition: 'all 0.15s ease',
+                                    boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                }}
+                            >
+                                <LeftOutlined />
+                            </button>
+                            <Text strong style={{ fontSize: 16, color: '#0F172A' }}>
+                                {visibleMonth.format('MMMM YYYY')}
+                            </Text>
+                            {showDualMonth ? (
+                                <div style={{ width: 36 }} />
+                            ) : (
+                                <button
+                                    type="button"
+                                    aria-label="next-month"
+                                    onClick={() => setVisibleMonth((current) => current.add(1, 'month'))}
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: '50%',
+                                        border: '1px solid #E2E8F0',
+                                        background: '#FFFFFF',
+                                        cursor: 'pointer',
+                                        display: 'grid',
+                                        placeItems: 'center',
+                                        color: '#475569',
+                                        fontSize: 14,
+                                        transition: 'all 0.15s ease',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                    }}
+                                >
+                                    <RightOutlined />
+                                </button>
+                            )}
+                        </div>
+                        <ShiftHistoryCalendarMonth
+                            month={visibleMonth}
+                            draftRange={draftDates}
+                            onSelect={handleSelectDay}
+                            isMobile={isMobile}
+                        />
+                    </div>
 
-                <div
-                    style={{
-                        display: 'grid',
-                        gridTemplateColumns: showDualMonth ? 'repeat(2, minmax(0, 1fr))' : '1fr',
-                        gap: 12,
-                    }}
-                >
-                    <ShiftHistoryCalendarMonth month={visibleMonth} draftRange={draftDates} onSelect={handleSelectDay} />
+                    {/* Second month (desktop only) */}
                     {showDualMonth ? (
-                        <ShiftHistoryCalendarMonth month={visibleMonth.add(1, 'month')} draftRange={draftDates} onSelect={handleSelectDay} />
+                        <div>
+                            <div
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    marginBottom: 12,
+                                    padding: '0 4px',
+                                }}
+                            >
+                                <div style={{ width: 36 }} />
+                                <Text strong style={{ fontSize: 16, color: '#0F172A' }}>
+                                    {visibleMonth.add(1, 'month').format('MMMM YYYY')}
+                                </Text>
+                                <button
+                                    type="button"
+                                    aria-label="next-month"
+                                    onClick={() => setVisibleMonth((current) => current.add(1, 'month'))}
+                                    style={{
+                                        width: 36,
+                                        height: 36,
+                                        borderRadius: '50%',
+                                        border: '1px solid #E2E8F0',
+                                        background: '#FFFFFF',
+                                        cursor: 'pointer',
+                                        display: 'grid',
+                                        placeItems: 'center',
+                                        color: '#475569',
+                                        fontSize: 14,
+                                        transition: 'all 0.15s ease',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                                    }}
+                                >
+                                    <RightOutlined />
+                                </button>
+                            </div>
+                            <ShiftHistoryCalendarMonth
+                                month={visibleMonth.add(1, 'month')}
+                                draftRange={draftDates}
+                                onSelect={handleSelectDay}
+                                isMobile={isMobile}
+                            />
+                        </div>
                     ) : null}
                 </div>
+
+                {/* Spacer for sticky footer */}
+                <div style={{ height: isMobile ? 80 : 20 }} />
             </div>
+
+            {/* ── Sticky footer ── */}
+            <div
+                style={{
+                    padding: isMobile ? '12px 16px' : '16px 28px',
+                    borderTop: '1px solid #F1F5F9',
+                    background: '#FFFFFF',
+                    display: 'flex',
+                    gap: 10,
+                    justifyContent: 'flex-end',
+                    flexShrink: 0,
+                    boxShadow: '0 -4px 16px rgba(0, 0, 0, 0.04)',
+                }}
+            >
+                {!isMobile ? (
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        style={{
+                            height: 44,
+                            borderRadius: 12,
+                            border: '1px solid #E2E8F0',
+                            background: '#FFFFFF',
+                            color: '#64748B',
+                            fontWeight: 600,
+                            fontSize: 14,
+                            cursor: 'pointer',
+                            padding: '0 24px',
+                            transition: 'all 0.15s ease',
+                        }}
+                    >
+                        ยกเลิก
+                    </button>
+                ) : null}
+                <button
+                    type="button"
+                    disabled={!canApplyDraft}
+                    onClick={() => {
+                        if (!draftRange) return;
+                        onApply(draftRange, 'custom');
+                    }}
+                    style={{
+                        height: isMobile ? 50 : 44,
+                        borderRadius: isMobile ? 14 : 12,
+                        border: 'none',
+                        background: canApplyDraft
+                            ? 'linear-gradient(135deg, #0D9488 0%, #2563EB 100%)'
+                            : '#E2E8F0',
+                        color: canApplyDraft ? '#FFFFFF' : '#94A3B8',
+                        fontWeight: 700,
+                        fontSize: isMobile ? 16 : 14,
+                        cursor: canApplyDraft ? 'pointer' : 'not-allowed',
+                        padding: '0 28px',
+                        flex: isMobile ? 1 : 'none',
+                        transition: 'all 0.2s ease',
+                        boxShadow: canApplyDraft
+                            ? '0 8px 24px rgba(13, 148, 136, 0.25)'
+                            : 'none',
+                    }}
+                >
+                    ใช้ช่วงเวลานี้
+                </button>
+            </div>
+        </div>
+    );
+
+    /* ─── Mobile: Full-screen Drawer ─── */
+    if (isMobile) {
+        return (
+            <Drawer
+                open={open}
+                onClose={onClose}
+                placement="bottom"
+                height="100dvh"
+                closable={false}
+                headerStyle={{ display: 'none' }}
+                bodyStyle={{ padding: 0 }}
+                styles={{ body: { padding: 0 } }}
+                zIndex={1600}
+                destroyOnClose
+            >
+                {dialogContent}
+            </Drawer>
+        );
+    }
+
+    /* ─── Desktop/Tablet: Modal ─── */
+    return (
+        <Modal
+            open={open}
+            onCancel={onClose}
+            title={null}
+            closable={false}
+            width={showDualMonth ? 920 : 520}
+            style={{ top: 32 }}
+            zIndex={1600}
+            footer={null}
+            bodyStyle={{ padding: 0 }}
+            styles={{ body: { padding: 0 } }}
+            destroyOnClose
+        >
+            {dialogContent}
         </Modal>
     );
 }
