@@ -14,7 +14,7 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/discounts/style';
 import { DiscountType, Discounts } from '../../../../../../types/api/pos/discounts';
 import { useAuth } from '../../../../../../contexts/AuthContext';
-import { DISCOUNTS_CAPABILITIES, DISCOUNTS_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/discounts-capabilities';
+
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -49,9 +49,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
     const canDelete = can('discounts.page', 'delete') && can('discounts.delete.feature', 'delete') && canOpenManager;
     const canSubmitAdd = canCreate;
     const canSubmitEdit = canEditMetadata || canEditPricing || canUpdateStatus;
-    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(() => DISCOUNTS_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null, [currentRoleName]);
-    const capabilityMatrix = useMemo(() => DISCOUNTS_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })), [can]);
+
     const title = useMemo(() => (isEdit ? 'แก้ไขส่วนลด' : 'เพิ่มส่วนลด'), [isEdit]);
 
     useEffect(() => {
@@ -206,7 +204,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                        <Alert type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'} showIcon message={selectedRoleBlueprint?.title || 'Discount manager permissions'} description={selectedRoleBlueprint ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}` : 'ระบบจะเปิดเฉพาะ field และ action ที่บัญชีนี้มีสิทธิ์'} />
+                        
                         {isEdit && !canSubmitEdit ? <Alert type="warning" showIcon message="หน้า edit นี้เปิดได้เฉพาะบาง action" description={canDelete ? 'บัญชีนี้ลบส่วนลดได้ แต่ไม่สามารถแก้ข้อมูลหรือกติกาส่วนลดได้' : 'บัญชีนี้ไม่มี field สำหรับบันทึกในหน้านี้'} /> : null}
                     </div>
                     {loading ? <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}><Spin size="large" /></div> : (
@@ -268,18 +266,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                         <Alert type={isActive ? 'success' : 'warning'} showIcon message={isActive ? 'ส่วนลดนี้พร้อมใช้งาน' : 'ส่วนลดนี้ถูกปิดใช้งาน'} />
                                     </Card>
                                     {isEdit ? <Card style={{ borderRadius: 16 }}><div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}><ExclamationCircleOutlined style={{ color: '#0369a1' }} /><Text strong>รายละเอียด</Text></div><Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalDiscount?.create_date)}</Text></Card> : null}
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Text strong>Discount Governance</Text>
-                                            <Text type="secondary">Capability ของส่วนลดถูกแยกออกจาก page access เพื่อคุม metadata, pricing, status และ delete แบบราย action</Text>
-                                            <Space wrap>
-                                                {DISCOUNTS_CAPABILITIES.map((item) => {
-                                                    const enabled = capabilityMatrix.find((candidate) => candidate.resourceKey === item.resourceKey)?.enabled;
-                                                    return <Tag key={item.resourceKey} color={enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>{item.title}</Tag>;
-                                                })}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+                                    
                                 </div>
                             </Col>
                         </Row>

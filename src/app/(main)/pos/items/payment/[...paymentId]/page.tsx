@@ -42,7 +42,7 @@ import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
 import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
-import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../../../lib/rbac/order-workflow-capabilities";
+
 
 
 const { Title, Text } = Typography;
@@ -107,26 +107,7 @@ export default function POSPaymentPage() {
     const canCreatePayment = isAdminUser || can("payments.checkout.feature", "create");
     const canEditOrder = isAdminUser || can("orders.edit.feature", "update");
     const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access");
-    const selectedBlueprint = useMemo(
-        () =>
-            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
-                (item) => item.roleName.toLowerCase() === String(user?.role ?? "").trim().toLowerCase()
-            ) ?? null,
-        [user?.role]
-    );
-    const paymentCapabilityKeys = useMemo(
-        () => new Set(["orders.detail.feature", "orders.edit.feature", "orders.cancel.feature", "payments.checkout.feature"]),
-        []
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            ORDER_WORKFLOW_CAPABILITIES.filter((item) => paymentCapabilityKeys.has(item.resourceKey)).map((item) => ({
-                ...item,
-                allowed: can(item.resourceKey, item.action),
-            })),
-        [can, paymentCapabilityKeys]
-    );
-    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
+
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -637,41 +618,7 @@ export default function POSPaymentPage() {
             <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
             <div style={{ padding: "16px 16px 0" }}>
-                {selectedBlueprint ? (
-                    <Alert
-                        type="info"
-                        showIcon
-                        message={`Payment governance for ${selectedBlueprint.roleName}`}
-                        description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
-                        style={{ marginBottom: 12 }}
-                    />
-                ) : null}
-                <Alert
-                    type="success"
-                    showIcon
-                    message="Checkout Capability Matrix"
-                    description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} checkout capabilities enabled.`}
-                    style={{ marginBottom: 12 }}
-                />
-                <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 12 }}>
-                    {capabilityMatrix.map((item) => (
-                        <div
-                            key={item.resourceKey}
-                            style={{
-                                borderRadius: 16,
-                                border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
-                                background: item.allowed ? "#f0fdf4" : "#fff7f7",
-                                padding: 14,
-                            }}
-                        >
-                            <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
-                            <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
-                            <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
-                                {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                
                 {(!canEditOrder || !canCancelOrder) ? (
                     <Alert
                         type="warning"

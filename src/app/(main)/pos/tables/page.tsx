@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
+import { Alert, Button, Pagination, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
     CheckCircleFilled,
     DeleteOutlined,
@@ -32,11 +32,11 @@ import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
-import ListPagination from '../../../../components/ui/pagination/ListPagination';
+
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
-import { TABLES_CAPABILITIES, TABLES_ROLE_BLUEPRINT } from '../../../../lib/rbac/tables-capabilities';
+
 
 const { Text } = Typography;
 
@@ -261,14 +261,7 @@ export default function TablesPage() {
         canOpenTablesManager && (canEditTableDetails || canToggleTableStatus || canDeleteTable);
     const canOpenQrWorkspace = can('qr_code.page', 'view');
     const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => TABLES_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => TABLES_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -545,16 +538,7 @@ export default function TablesPage() {
 
             <PageContainer>
                 <PageStack>
-                    <Alert
-                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                        showIcon
-                        message={selectedRoleBlueprint?.title || 'Tables permissions'}
-                        description={
-                            selectedRoleBlueprint
-                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                : 'หน้าจัดการโต๊ะจะเปิดเฉพาะส่วนที่ role นี้ได้รับสิทธิ์จริง'
-                        }
-                    />
+
 
                     {(!canSearchTables || !canFilterTables || !canOpenQrWorkspace || !canOpenTablesManager) ? (
                         <Alert
@@ -565,36 +549,7 @@ export default function TablesPage() {
                         />
                     ) : null}
 
-                    <PageSection
-                        title="Tables Capability Matrix"
-                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 18,
-                                        padding: 16,
-                                        border: item.enabled ? '1px solid rgba(37, 99, 235, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
-                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #eff6ff 100%)' : '#ffffff',
-                                        boxShadow: item.enabled ? '0 14px 32px rgba(37, 99, 235, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
-                                    }}
-                                >
-                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                        <Space wrap>
-                                            <Tag color={item.enabled ? 'blue' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
-                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'cyan'}>
-                                                {item.securityLevel}
-                                            </Tag>
-                                        </Space>
-                                        <Text strong>{item.title}</Text>
-                                        <Text type="secondary">{item.description}</Text>
-                                    </Space>
-                                </div>
-                            ))}
-                        </div>
-                    </PageSection>
+
 
                     <SearchBar>
                         <SearchInput placeholder="ค้นหาโต๊ะ" value={searchText} onChange={setSearchText} disabled={!canSearchTables} />
@@ -674,15 +629,18 @@ export default function TablesPage() {
                                     />
                                 ))}
 
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
                                         pageSize={pageSize}
-                                        loading={loading || refreshing}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#7C3AED"
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </Space>

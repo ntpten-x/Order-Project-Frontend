@@ -14,7 +14,7 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/category/style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { useAuth } from '../../../../../../contexts/AuthContext';
-import { CATEGORY_CAPABILITIES, CATEGORY_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/category-capabilities';
+
 
 const { Title, Text } = Typography;
 
@@ -63,19 +63,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     const canSubmitAdd = canCreate;
     const canSubmitEdit = canRename || canUpdateStatus;
     const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () =>
-            CATEGORY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            CATEGORY_CAPABILITIES.map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
+
 
     const title = useMemo(() => (isEdit ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่'), [isEdit]);
 
@@ -251,16 +239,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                        <Alert
-                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                            showIcon
-                            message={selectedRoleBlueprint?.title || 'Category manager permissions'}
-                            description={
-                                selectedRoleBlueprint
-                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                    : 'ระบบจะเปิดเฉพาะ field และ action ที่บัญชีนี้มีสิทธิ์'
-                            }
-                        />
+
                         {isEdit && !canSubmitEdit ? (
                             <Alert
                                 type="warning"
@@ -356,22 +335,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                         />
                                     </Card>
 
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Text strong>Category Governance</Text>
-                                            <Text type="secondary">Field และ action ในหน้านี้จะเปิดเฉพาะ capability ที่ role ปัจจุบันได้รับเท่านั้น</Text>
-                                            <Space wrap>
-                                                {capabilityMatrix.map((item) => (
-                                                    <Tag
-                                                        key={item.resourceKey}
-                                                        color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}
-                                                    >
-                                                        {item.title}
-                                                    </Tag>
-                                                ))}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+
 
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>

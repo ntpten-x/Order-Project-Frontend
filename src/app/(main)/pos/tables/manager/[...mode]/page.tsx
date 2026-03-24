@@ -15,7 +15,7 @@ import { Tables, TableStatus } from '../../../../../../types/api/pos/tables';
 import type { TableQrInfo } from '../../../../../../types/api/pos/tables';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { DynamicQRCode } from '../../../../../../lib/dynamic-imports';
-import { TABLES_CAPABILITIES, TABLES_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/tables-capabilities';
+
 
 type TablesManageMode = 'add' | 'edit';
 type TableFormValues = { table_name: string; status: TableStatus; is_active?: boolean };
@@ -86,14 +86,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const canSubmitAdd = canCreateTables;
     const canSubmitEdit = canEditTableDetails || canUpdateTableStatus;
 
-    const selectedRoleBlueprint = useMemo(
-        () => TABLES_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === String(user?.role ?? '').trim().toLowerCase()) ?? null,
-        [user?.role]
-    );
-    const capabilityMatrix = useMemo(
-        () => TABLES_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -247,7 +240,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             <PageContainer maxWidth={1100}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     <Space direction="vertical" size={16} style={{ width: '100%', marginBottom: 16 }}>
-                        <Alert type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'} showIcon message={selectedRoleBlueprint?.title || 'Tables governance'} description={selectedRoleBlueprint ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}` : 'เปิดเฉพาะ field และ action ที่ role นี้มี capability จริง'} />
+
                         {(!canEditTableDetails || !canUpdateTableStatus || (isEdit && !canPreviewTableQr)) ? <Alert type="warning" showIcon message="Some table manager controls are restricted by policy" description="field ชื่อโต๊ะ, สถานะโต๊ะ, สวิตช์การใช้งาน และ preview QR จะถูกปิดหรือซ่อนตาม capability ของ role นี้" /> : null}
                     </Space>
                     {loading ? (
@@ -280,13 +273,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                             </Col>
                             <Col xs={24} lg={9}>
                                 <div style={{ display: 'grid', gap: 14 }}>
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                                            <Space><ExclamationCircleOutlined style={{ color: '#2563eb' }} /><Text strong>Tables Governance</Text></Space>
-                                            <Text type="secondary">หน้านี้แยกสิทธิ์ create, edit details, status control และ delete ออกจากกัน เพื่อเปิดเฉพาะ action ที่จำเป็นจริง</Text>
-                                            {capabilityMatrix.map((item) => <Tag key={item.resourceKey} color={item.enabled ? 'blue' : item.securityLevel === 'governance' ? 'red' : 'default'}>{item.title}</Tag>)}
-                                        </Space>
-                                    </Card>
+
                                     <TablePreviewCard tableName={tableName} status={status} isActive={isActive} />
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>

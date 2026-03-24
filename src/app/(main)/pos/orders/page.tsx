@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
@@ -45,7 +45,7 @@ import PageState from "../../../../components/ui/states/PageState";
 import SmartImage from "../../../../components/ui/image/SmartImage";
 import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
-import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../lib/rbac/order-workflow-capabilities";
+
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 
 const { Text } = Typography;
@@ -455,35 +455,7 @@ function POSOrdersPageContent({
     const canSearchOrders = can("orders.search.feature", "view");
     const canFilterOrders = can("orders.filter.feature", "view");
     const canOpenOrderDetail = can("orders.detail.feature", "access");
-    const selectedBlueprint = useMemo(
-        () =>
-            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
-                (item) => item.roleName.toLowerCase() === roleName.trim().toLowerCase()
-            ) ?? null,
-        [roleName]
-    );
-    const capabilityKeys = useMemo(
-        () =>
-            new Set([
-                "orders.page",
-                "orders.search.feature",
-                "orders.filter.feature",
-                "orders.summary.feature",
-                "orders.detail.feature",
-                "orders.edit.feature",
-                "orders.cancel.feature",
-            ]),
-        []
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            ORDER_WORKFLOW_CAPABILITIES.filter((item) => capabilityKeys.has(item.resourceKey)).map((item) => ({
-                ...item,
-                allowed: can(item.resourceKey, item.action),
-            })),
-        [can, capabilityKeys]
-    );
-    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
+
 
     const currentTabConfig = STATUS_TABS.find(t => t.key === activeTab)!;
 
@@ -660,7 +632,6 @@ function POSOrdersPageContent({
             {/* ═══ Page Header ═══ */}
             <UIPageHeader
                 title="ออเดอร์"
-                subtitle={`รายการทั้งหมด ${total} รายการ`}
                 onBack={() => router.push('/pos')}
                 icon={<ContainerOutlined style={{ fontSize: 20 }} />}
                 actions={
@@ -689,45 +660,8 @@ function POSOrdersPageContent({
             />
 
             <PageContainer>
-                {selectedBlueprint && (
-                    <div style={{ marginBottom: 16 }}>
-                        <Alert
-                            type="info"
-                            showIcon
-                            message={`Order workflow baseline for ${selectedBlueprint.roleName}`}
-                            description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
-                        />
-                    </div>
-                )}
-                <PageSection title="Order Capability Matrix">
-                    <div style={{ display: "grid", gap: 12 }}>
-                        <Alert
-                            type="success"
-                            showIcon
-                            message="Order workflow capability matrix"
-                            description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} order capabilities enabled on the orders workspace.`}
-                        />
-                        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))" }}>
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 16,
-                                        border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
-                                        background: item.allowed ? "#f0fdf4" : "#fff7f7",
-                                        padding: 14,
-                                    }}
-                                >
-                                    <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
-                                    <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
-                                    <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
-                                        {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    </div>
-                </PageSection>
+
+
                 {!canViewOrderSummary && (
                     <PageSection>
                         <Alert

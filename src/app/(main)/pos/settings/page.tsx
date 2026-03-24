@@ -46,7 +46,7 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles } from '../../../../theme/pos/settings/style';
-import { SETTINGS_CAPABILITIES, SETTINGS_ROLE_BLUEPRINT } from '../../../../lib/rbac/settings-capabilities';
+
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 
 const { Title, Text } = Typography;
@@ -110,11 +110,7 @@ export default function POSSettingsPage() {
     const [savingProfile, setSavingProfile] = useState(false);
     const [profileForm] = Form.useForm<ProfileFormValues>();
 
-    const currentRoleName = String(user?.role || '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => SETTINGS_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
+
 
     const canViewProfile = can('shop_profile.page', 'view');
     const canEditIdentity = can('shop_profile.identity.feature', 'update');
@@ -187,16 +183,7 @@ export default function POSSettingsPage() {
     );
     const profileData = profileQuery.data ?? null;
 
-    const capabilityMatrix = useMemo(
-        () =>
-            SETTINGS_CAPABILITIES.filter((item) => item.resourceKey !== 'shop_profile.page').map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
 
-    const enabledCapabilityCount = capabilityMatrix.filter((item) => item.enabled).length;
 
     const handleOpenProfileEditor = () => {
         if (!canEditProfile) {
@@ -284,43 +271,7 @@ export default function POSSettingsPage() {
 
             <PageContainer maxWidth={1120}>
                 <PageStack>
-                    {selectedRoleBlueprint ? (
-                        <Alert
-                            type={selectedRoleBlueprint.roleName === 'Employee' ? 'info' : 'success'}
-                            showIcon
-                            message={selectedRoleBlueprint.title}
-                            description={`${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
-                        />
-                    ) : null}
-
-                    <PageSection
-                        title="Settings Capability Matrix"
-                        extra={<Tag color="blue">{enabledCapabilityCount}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <Row gutter={[16, 16]}>
-                            {capabilityMatrix.map((item) => (
-                                <Col xs={24} md={12} xl={8} key={item.resourceKey}>
-                                    <Card size="small" style={{ borderRadius: 18, height: '100%' }}>
-                                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                                            <Space align="center" style={{ justifyContent: 'space-between', width: '100%' }}>
-                                                <Text strong>{item.title}</Text>
-                                                <Tag color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                    {item.enabled ? 'Allowed' : 'Restricted'}
-                                                </Tag>
-                                            </Space>
-                                            <Text type="secondary">{item.description}</Text>
-                                            <Space wrap>
-                                                <Tag>{item.action.toUpperCase()}</Tag>
-                                                <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
-                                                    {item.securityLevel}
-                                                </Tag>
-                                            </Space>
-                                        </Space>
-                                    </Card>
-                                </Col>
-                            ))}
-                        </Row>
-                    </PageSection>
+                
 
                     <PageSection title="Branch Governance Overview">
                         <Row gutter={[16, 16]}>
@@ -358,16 +309,7 @@ export default function POSSettingsPage() {
                                                     </Descriptions.Item>
                                                 </Descriptions>
 
-                                                <Alert
-                                                    type="info"
-                                                    showIcon
-                                                    message="Branch identity governance"
-                                                    description={
-                                                        canEditProfile
-                                                            ? 'บัญชีนี้สามารถแก้ไขข้อมูลชื่อร้านและข้อมูลติดต่อของสาขาได้'
-                                                            : 'บัญชีนี้เปิดดูข้อมูลได้ แต่แก้ไขข้อมูลสาขาไม่ได้'
-                                                    }
-                                                />
+                                                
                                             </>
                                         )}
                                     </Space>
@@ -411,12 +353,7 @@ export default function POSSettingsPage() {
                                                     </Space>
                                                 </div>
 
-                                                <Alert
-                                                    type="warning"
-                                                    showIcon
-                                                    message="Payment account governance"
-                                                    description={`สร้าง: ${canCreateAccount ? 'ได้' : 'ไม่ได้'} | แก้ไข: ${canEditAccount ? 'ได้' : 'ไม่ได้'} | ตั้งบัญชีหลัก: ${canActivateAccount ? 'ได้' : 'ไม่ได้'} | ลบ: ${canDeleteAccount ? 'ได้' : 'ไม่ได้'}`}
-                                                />
+                                                
                                             </>
                                         ) : (
                                             <UIEmptyState
@@ -430,25 +367,7 @@ export default function POSSettingsPage() {
                         </Row>
                     </PageSection>
 
-                    <PageSection title="Settings Governance">
-                        <Card style={{ borderRadius: 20 }}>
-                            <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                                <Text strong>Scope นี้ถูกออกแบบให้เป็น branch governance</Text>
-                                <Text type="secondary">
-                                    หน้า settings แยกสิทธิ์ระหว่างการเปิดหน้า, การแก้ไขข้อมูลสาขา, การเปิด workspace บัญชีรับเงิน, การค้นหา/กรอง, การสร้าง, การแก้ไข, การตั้งบัญชีหลัก และการลบ
-                                </Text>
-                                <Space wrap>
-                                    <Tag color={canEditIdentity ? 'green' : 'default'}>Identity</Tag>
-                                    <Tag color={canEditContact ? 'green' : 'default'}>Contact</Tag>
-                                    <Tag color={canOpenAccountsWorkspace ? 'green' : 'default'}>Payment Workspace</Tag>
-                                    <Tag color={canCreateAccount ? 'green' : 'default'}>Create</Tag>
-                                    <Tag color={canEditAccount ? 'green' : 'default'}>Edit</Tag>
-                                    <Tag color={canActivateAccount ? 'green' : 'default'}>Activate</Tag>
-                                    <Tag color={canDeleteAccount ? 'green' : 'red'}>Delete</Tag>
-                                </Space>
-                            </Space>
-                        </Card>
-                    </PageSection>
+
                 </PageStack>
             </PageContainer>
 

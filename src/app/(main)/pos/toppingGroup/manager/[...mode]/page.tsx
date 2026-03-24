@@ -14,7 +14,7 @@ import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/category/style';
 import { ToppingGroup } from '../../../../../../types/api/pos/toppingGroup';
-import { TOPPING_GROUP_CAPABILITIES, TOPPING_GROUP_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/topping-group-capabilities';
+
 
 const { Title, Text } = Typography;
 
@@ -64,14 +64,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
     const isStatusReadOnly = isEdit && !canUpdateToppingGroupStatus;
 
     const title = useMemo(() => (isEdit ? 'แก้ไขกลุ่มท็อปปิ้ง' : 'เพิ่มกลุ่มท็อปปิ้ง'), [isEdit]);
-    const selectedRoleBlueprint = useMemo(() => {
-        const currentRole = String(user?.role ?? '').trim().toLowerCase();
-        return TOPPING_GROUP_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRole) ?? null;
-    }, [user?.role]);
-    const capabilityMatrix = useMemo(
-        () => TOPPING_GROUP_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -225,24 +218,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
-                    <Space direction="vertical" size={16} style={{ width: '100%', marginBottom: 16 }}>
-                        {selectedRoleBlueprint ? (
-                            <Alert
-                                type="info"
-                                showIcon
-                                message={`${selectedRoleBlueprint.roleName} baseline`}
-                                description={`${selectedRoleBlueprint.summary} Allowed: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
-                            />
-                        ) : null}
-                        {isEdit && (!canEditToppingGroupDetails || !canUpdateToppingGroupStatus || !canDeleteToppingGroup) ? (
-                            <Alert
-                                type="warning"
-                                showIcon
-                                message="Some manager controls are restricted by policy"
-                                description="Field access is separated into edit details, status control, and delete governance."
-                            />
-                        ) : null}
-                    </Space>
+
 
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
@@ -324,21 +300,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                                         </Space>
                                     </Card>
 
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Text strong>Topping Group Governance</Text>
-                                            <Text type="secondary">
-                                                แยกสิทธิ์ของ manager workspace ออกจาก page access เพื่อควบคุม create, edit details, status, และ delete แบบราย action
-                                            </Text>
-                                            <Space wrap>
-                                                {capabilityMatrix.map((item) => (
-                                                    <Tag key={item.resourceKey} color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                        {item.title}
-                                                    </Tag>
-                                                ))}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+
 
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>

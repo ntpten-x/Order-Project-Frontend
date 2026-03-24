@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
+import { Alert, message, Modal, Typography, Button, Pagination, Space, Tag, Switch } from 'antd';
 import {
     TagsOutlined,
     PlusOutlined,
@@ -24,7 +24,7 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
-import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
@@ -33,7 +33,7 @@ import { SearchInput } from '@/components/ui/input/SearchInput';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
-import { CATEGORY_CAPABILITIES, CATEGORY_ROLE_BLUEPRINT } from '../../../../lib/rbac/category-capabilities';
+
 
 const { Text } = Typography;
 
@@ -229,20 +229,8 @@ export default function CategoryPage() {
     const canToggleCategoryStatus = can('category.page', 'update') && can('category.status.feature', 'update') && canOpenCategoryManager;
     const canDeleteCategory = can('category.page', 'delete') && can('category.delete.feature', 'delete') && canOpenCategoryManager;
     const canOpenCategoryEditWorkspace = canOpenCategoryManager && (canEditCategory || canToggleCategoryStatus || canDeleteCategory);
-    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () =>
-            CATEGORY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            CATEGORY_CAPABILITIES.map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
+
+
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -509,55 +497,9 @@ export default function CategoryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <Alert
-                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                        showIcon
-                        message={selectedRoleBlueprint?.title || 'Category permissions'}
-                        description={
-                            selectedRoleBlueprint
-                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                : canViewCategory
-                                    ? 'บัญชีนี้สามารถเปิดหน้าหมวดหมู่สินค้าได้'
-                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าหมวดหมู่สินค้า'
-                        }
-                    />
+                    
 
-                    <PageSection
-                        title="Category Capability Matrix"
-                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                                gap: 12,
-                            }}
-                        >
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 18,
-                                        padding: 16,
-                                        border: item.enabled ? '1px solid rgba(14, 165, 233, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
-                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%)' : '#ffffff',
-                                        boxShadow: item.enabled ? '0 14px 32px rgba(14, 165, 233, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
-                                    }}
-                                >
-                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                        <Space wrap>
-                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
-                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
-                                                {item.securityLevel}
-                                            </Tag>
-                                        </Space>
-                                        <Text strong>{item.title}</Text>
-                                        <Text type="secondary">{item.description}</Text>
-                                    </Space>
-                                </div>
-                            ))}
-                        </div>
-                    </PageSection>
+                    
 
                     <SearchBar>
                         <SearchInput
@@ -610,10 +552,7 @@ export default function CategoryPage() {
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
-                                <Tag color={canCreateCategory ? 'green' : 'default'}>create</Tag>
-                                <Tag color={canEditCategory ? 'green' : 'default'}>edit</Tag>
-                                <Tag color={canToggleCategoryStatus ? 'green' : 'default'}>status</Tag>
-                                <Tag color={canDeleteCategory ? 'red' : 'default'}>delete</Tag>
+                                <span></span>
                             </Space>
                         }
                     >
@@ -643,15 +582,18 @@ export default function CategoryPage() {
                                     />
                                 ))}
 
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
-                                        pageSize={pageSize}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
-                                        loading={loading || refreshing}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#0369a1"
+                                        pageSize={pageSize}
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </Space>

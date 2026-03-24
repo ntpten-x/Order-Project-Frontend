@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, Button, Card, Empty, Modal, Space, Statistic, Switch, Tag, Typography, message } from "antd";
+import { Alert, Button, Card, Empty, Modal, Pagination, Space, Switch, Tag, Typography, message } from "antd";
 import {
     AppstoreOutlined,
     DeleteOutlined,
@@ -15,7 +15,7 @@ import { useRouter } from "next/navigation";
 import Image from "../../../../components/ui/image/SmartImage";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
-import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
@@ -28,10 +28,7 @@ import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext"
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useListState } from "../../../../hooks/pos/useListState";
-import {
-    PRODUCTS_CAPABILITIES,
-    PRODUCTS_ROLE_BLUEPRINT,
-} from "../../../../lib/rbac/products-capabilities";
+
 import { DEFAULT_CREATED_SORT } from "../../../../lib/list-sort";
 import { pageStyles, globalStyles } from "../../../../theme/pos/products/style";
 import { Category } from "../../../../types/api/pos/category";
@@ -52,7 +49,6 @@ type CategoryFilter = "all" | string;
 type ProductsCachePayload = {
     items: Products[];
     total: number;
-    activeCount: number;
 };
 
 const PRODUCTS_CACHE_KEY = "pos:products:list:default-v1";
@@ -162,27 +158,27 @@ function ProductCard({
                             {product.display_name}
                         </Text>
                         <Tag color={product.is_active ? "green" : "default"} style={{ borderRadius: 999 }}>
-                            {product.is_active ? "Active" : "Inactive"}
+                            {product.is_active ? "เปิดขาย" : "ปิดขาย"}
                         </Tag>
                     </Space>
                     <Text type="secondary" style={{ display: "block", marginBottom: 10 }}>
-                        {product.description?.trim() || "No description"}
+                        {product.description?.trim() || "ไม่มีคำอธิบาย"}
                     </Text>
 
                     <Space size={[8, 8]} wrap style={{ marginBottom: 10 }}>
                         <Tag color="blue">{categoryName}</Tag>
                         <Tag color="cyan">{unitName}</Tag>
-                        <Tag color="gold">Store {formatCurrency(product.price)}</Tag>
-                        <Tag color="magenta">Delivery {formatCurrency(deliveryPrice)}</Tag>
+                        <Tag color="gold">หน้าร้าน {formatCurrency(product.price)}</Tag>
+                        <Tag color="magenta">เดลิเวอรี่ {formatCurrency(deliveryPrice)}</Tag>
                         <Tag color={(product.topping_groups?.length || 0) > 0 ? "purple" : "default"}>
                             {(product.topping_groups?.length || 0) > 0
-                                ? `${product.topping_groups?.length || 0} topping groups`
-                                : "No topping groups"}
+                                ? `${product.topping_groups?.length || 0} กลุ่มท็อปปิ้ง`
+                                : "ไม่มีกลุ่มท็อปปิ้ง"}
                         </Tag>
                     </Space>
 
                     <Text type="secondary" style={{ fontSize: 12 }}>
-                        Updated {formatDate(product.update_date)}
+                        อัปเดตเมื่อ {formatDate(product.update_date)}
                     </Text>
                 </div>
 
@@ -251,7 +247,7 @@ export default function ProductsPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
-    const [activeCount, setActiveCount] = useState(0);
+
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
@@ -314,14 +310,7 @@ export default function ProductsPage() {
         (canEditProductCatalog || canEditProductPricing || canEditProductStructure || canToggleProductStatus || canDeleteProduct);
 
     const currentRoleName = String(user?.role ?? "").trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => PRODUCTS_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => PRODUCTS_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
 
     const isDefaultListView = useMemo(
         () =>
@@ -354,7 +343,6 @@ export default function ProductsPage() {
         if (!cached) return;
         setProducts(cached.items || []);
         setTotal(cached.total || 0);
-        setActiveCount(cached.activeCount || 0);
         setHasCachedSnapshot(true);
         setLoading(false);
     }, [isAuthorized, isDefaultListView, isUrlReady, setTotal]);
@@ -364,9 +352,8 @@ export default function ProductsPage() {
         writeCache<ProductsCachePayload>(PRODUCTS_CACHE_KEY, {
             items: products,
             total,
-            activeCount,
         });
-    }, [activeCount, isDefaultListView, loading, products, total]);
+    }, [isDefaultListView, loading, products, total]);
 
     useEffect(() => {
         if (!canSearchProducts && searchText) setSearchText("");
@@ -402,25 +389,7 @@ export default function ProductsPage() {
         }
     }, []);
 
-    const fetchActiveCount = useCallback(async () => {
-        if (!isAuthorized) return;
-        try {
-            const params = new URLSearchParams();
-            if (canFilterProducts && filters.category !== "all") {
-                params.set("category_id", String(filters.category));
-            }
 
-            const query = params.toString();
-            const response = await fetch(`/api/pos/products/active-count${query ? `?${query}` : ""}`, {
-                cache: "no-store",
-            });
-            if (!response.ok) return;
-            const payload = await response.json();
-            setActiveCount(Number(payload.total || 0));
-        } catch (countError) {
-            console.error("Failed to fetch active product count", countError);
-        }
-    }, [canFilterProducts, filters.category, isAuthorized]);
 
     const fetchProducts = useCallback(async (options?: { background?: boolean }) => {
         if (!isAuthorized) return;
@@ -469,7 +438,7 @@ export default function ProductsPage() {
 
             setProducts(payload.data || []);
             setTotal(payload.total || 0);
-            await fetchActiveCount();
+
         } catch (fetchError) {
             if (controller.signal.aborted) return;
             setError(fetchError instanceof Error ? fetchError : new Error("Failed to fetch products"));
@@ -480,7 +449,7 @@ export default function ProductsPage() {
                 setRefreshing(false);
             }
         }
-    }, [canFilterProducts, canSearchProducts, fetchActiveCount, getQueryParams, isAuthorized, setTotal]);
+    }, [canFilterProducts, canSearchProducts, getQueryParams, isAuthorized, setTotal]);
 
     useEffect(() => {
         if (!isAuthorized || !isUrlReady) return;
@@ -518,36 +487,36 @@ export default function ProductsPage() {
 
     const handleAdd = () => {
         if (!canCreateProduct) {
-            message.warning("You do not have permission to create products");
+            message.warning("คุณไม่มีสิทธิ์ในการสร้างสินค้า");
             return;
         }
         if (!setupState.isReady) {
-            message.warning(setupMessage || "Product setup is not ready");
+            message.warning(setupMessage || "ระบบยังไม่พร้อมสำหรับสร้างสินค้า");
             return;
         }
-        showLoading("Opening product management workspace...");
+        showLoading("กำลังเปิดหน้าจัดการข้อมูลสินค้า...");
         router.push("/pos/products/manage/add");
     };
 
     const handleEdit = (product: Products) => {
         if (!canOpenProductEditWorkspace) {
-            message.warning("You do not have permission to edit products");
+            message.warning("คุณไม่มีสิทธิ์ในการแก้ไขสินค้า");
             return;
         }
-        showLoading("Opening product editor...");
+        showLoading("กำลังเปิดหน้าแก้ไขข้อมูลสินค้า...");
         router.push(`/pos/products/manage/edit/${product.id}`);
     };
 
     const handleDelete = (product: Products) => {
         if (!canDeleteProduct) {
-            message.warning("You do not have permission to delete products");
+            message.warning("คุณไม่มีสิทธิ์ในการลบสินค้า");
             return;
         }
         Modal.confirm({
-            title: "Delete product",
-            content: `Delete "${product.display_name}" from this branch catalog?`,
-            okText: "Delete",
-            cancelText: "Cancel",
+            title: "ลบสินค้า",
+            content: `ต้องการลบ "${product.display_name}" ออกจากแคตตาล็อกสาขานี้ใช่หรือไม่?`,
+            okText: "ลบ",
+            cancelText: "ยกเลิก",
             okType: "danger",
             centered: true,
             icon: <DeleteOutlined style={{ color: "#ef4444" }} />,
@@ -561,20 +530,19 @@ export default function ProductsPage() {
                     });
                     if (!response.ok) {
                         const errorPayload = await response.json().catch(() => ({}));
-                        throw new Error(errorPayload.error || errorPayload.message || "Failed to delete product");
+                        throw new Error(errorPayload.error || errorPayload.message || "ลบสินค้าไม่สำเร็จ");
                     }
 
                     const shouldMoveToPreviousPage = page > 1 && products.length === 1;
                     setProducts((previous) => previous.filter((item) => item.id !== product.id));
                     setTotal((previous) => Math.max(previous - 1, 0));
-                    setActiveCount((previous) => Math.max(previous - (product.is_active ? 1 : 0), 0));
 
                     if (shouldMoveToPreviousPage) setPage(page - 1);
                     else void fetchProducts({ background: true });
 
                     message.success(`Deleted "${product.display_name}"`);
                 } catch (deleteError) {
-                    message.error(deleteError instanceof Error ? deleteError.message : "Failed to delete product");
+                    message.error(deleteError instanceof Error ? deleteError.message : "ลบสินค้าไม่สำเร็จ");
                 } finally {
                     setDeletingId(null);
                 }
@@ -584,7 +552,7 @@ export default function ProductsPage() {
 
     const handleToggleActive = async (product: Products, next: boolean) => {
         if (!canToggleProductStatus) {
-            message.warning("You do not have permission to change product status");
+            message.warning("คุณไม่มีสิทธิ์ในการแก้ไขสถานะสินค้า");
             return;
         }
 
@@ -601,15 +569,15 @@ export default function ProductsPage() {
             });
             if (!response.ok) {
                 const errorPayload = await response.json().catch(() => ({}));
-                throw new Error(errorPayload.error || errorPayload.message || "Failed to update product status");
+                throw new Error(errorPayload.error || errorPayload.message || "อัปเดตสถานะสินค้าไม่สำเร็จ");
             }
 
             const updated = await response.json();
             setProducts((previous) => previous.map((item) => (item.id === product.id ? updated : item)));
             void fetchProducts({ background: true });
-            message.success(next ? "Product enabled" : "Product disabled");
+            message.success(next ? "เปิดขายสินค้าเรียบร้อยแล้ว" : "ปิดขายสินค้าเรียบร้อยแล้ว");
         } catch (toggleError) {
-            message.error(toggleError instanceof Error ? toggleError.message : "Failed to update product status");
+            message.error(toggleError instanceof Error ? toggleError.message : "อัปเดตสถานะสินค้าไม่สำเร็จ");
         } finally {
             setUpdatingStatusId(null);
         }
@@ -624,15 +592,14 @@ export default function ProductsPage() {
             <style>{globalStyles}</style>
 
             <UIPageHeader
-                title="Products"
-                subtitle="Branch product catalog governance"
+                title="สินค้า"
                 icon={<AppstoreOutlined />}
                 actions={(
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchProducts({ background: products.length > 0 })} />
                         {canCreateProduct ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady}>
-                                Add product
+                                เพิ่มสินค้า
                             </Button>
                         ) : null}
                     </Space>
@@ -641,84 +608,24 @@ export default function ProductsPage() {
 
             <PageContainer>
                 <PageStack>
-                    <Alert
-                        type={selectedRoleBlueprint?.roleName === "Employee" ? "info" : "success"}
-                        showIcon
-                        message={selectedRoleBlueprint?.title || "Products permissions"}
-                        description={
-                            selectedRoleBlueprint
-                                ? `${selectedRoleBlueprint.summary} | Allowed: ${selectedRoleBlueprint.allowed.join(", ")}${
-                                    selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(", ")}` : ""
-                                }`
-                                : canViewProducts
-                                    ? "This account can open the product catalog"
-                                    : "This account cannot open the product catalog"
-                        }
-                    />
+
 
                     {!setupState.isReady ? (
                         <Alert
                             type="warning"
                             showIcon
-                            message="Product setup dependencies are incomplete"
-                            description={setupMessage || "Activate at least one category and one product unit before creating new products"}
+                            message="ข้อมูลพื้นฐานสำหรับการตั้งค่าสินค้าไม่ครบถ้วน"
+                            description={setupMessage || "โปรดเปิดใช้งานหมวดหมู่และหน่วยสินค้าอย่างน้อยอย่างละ 1 รายการก่อนสร้างสินค้า"}
                         />
                     ) : null}
 
-                    <PageSection
-                        title="Catalog Health"
-                        extra={<Tag color="blue">{activeCount} active</Tag>}
-                    >
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-                            <Card bordered={false} style={{ borderRadius: 18, background: "linear-gradient(180deg, #ffffff 0%, #eef2ff 100%)" }}>
-                                <Statistic title="Total products" value={total} prefix={<ShoppingOutlined />} />
-                            </Card>
-                            <Card bordered={false} style={{ borderRadius: 18, background: "linear-gradient(180deg, #ffffff 0%, #ecfeff 100%)" }}>
-                                <Statistic title="Active products" value={activeCount} prefix={<TagsOutlined />} />
-                            </Card>
-                            <Card bordered={false} style={{ borderRadius: 18, background: "linear-gradient(180deg, #ffffff 0%, #fefce8 100%)" }}>
-                                <Statistic title="Active categories" value={activeCategories.length} />
-                            </Card>
-                            <Card bordered={false} style={{ borderRadius: 18, background: "linear-gradient(180deg, #ffffff 0%, #f5f3ff 100%)" }}>
-                                <Statistic title="Active units" value={activeUnits.length} />
-                            </Card>
-                        </div>
-                    </PageSection>
 
-                    <PageSection
-                        title="Products Capability Matrix"
-                        extra={<Tag color="green">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 }}>
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 18,
-                                        padding: 16,
-                                        border: item.enabled ? "1px solid rgba(79, 70, 229, 0.16)" : "1px solid rgba(148, 163, 184, 0.24)",
-                                        background: item.enabled ? "linear-gradient(180deg, #ffffff 0%, #eef2ff 100%)" : "#ffffff",
-                                        boxShadow: item.enabled ? "0 14px 32px rgba(79, 70, 229, 0.08)" : "0 10px 24px rgba(15, 23, 42, 0.04)",
-                                    }}
-                                >
-                                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                                        <Space wrap>
-                                            <Tag color={item.enabled ? "green" : "default"}>{item.enabled ? "Enabled" : "Locked"}</Tag>
-                                            <Tag color={item.securityLevel === "governance" ? "red" : item.securityLevel === "sensitive" ? "gold" : "blue"}>
-                                                {item.securityLevel}
-                                            </Tag>
-                                        </Space>
-                                        <Text strong>{item.title}</Text>
-                                        <Text type="secondary">{item.description}</Text>
-                                    </Space>
-                                </div>
-                            ))}
-                        </div>
-                    </PageSection>
+
+
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="Search products"
+                            placeholder="ค้นหาสินค้า"
                             value={searchText}
                             onChange={setSearchText}
                             disabled={!canSearchProducts}
@@ -726,23 +633,23 @@ export default function ProductsPage() {
                         <Space wrap size={10} style={{ justifyContent: "space-between", width: "100%" }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
-                                    title="Filter status"
+                                    title="กรองสถานะ"
                                     value={filters.status}
                                     onChange={(value) => updateFilter("status", value)}
                                     options={[
-                                        { label: "All status", value: "all" },
-                                        { label: "Active", value: "active" },
-                                        { label: "Inactive", value: "inactive" },
+                                        { label: "สถานะทั้งหมด", value: "all" },
+                                        { label: "เปิดขาย", value: "active" },
+                                        { label: "ปิดขาย", value: "inactive" },
                                     ]}
                                     style={{ minWidth: 120 }}
                                     disabled={!canFilterProducts}
                                 />
                                 <ModalSelector<CategoryFilter>
-                                    title="Filter category"
+                                    title="กรองหมวดหมู่"
                                     value={filters.category}
                                     onChange={(value) => updateFilter("category", value)}
                                     options={[
-                                        { label: "All categories", value: "all" },
+                                        { label: "หมวดหมู่ทั้งหมด", value: "all" },
                                         ...categories.map((item) => ({
                                             label: item.display_name,
                                             value: item.id,
@@ -754,12 +661,12 @@ export default function ProductsPage() {
                                     disabled={!canFilterProducts}
                                 />
                                 <ModalSelector<CreatedSort>
-                                    title="Sort by created date"
+                                    title="จัดเรียงตามวันที่สร้าง"
                                     value={createdSort}
                                     onChange={setCreatedSort}
                                     options={[
-                                        { label: "Oldest first", value: "old" },
-                                        { label: "Newest first", value: "new" },
+                                        { label: "เก่าสุดก่อน", value: "old" },
+                                        { label: "ใหม่สุดก่อน", value: "new" },
                                     ]}
                                     style={{ minWidth: 140 }}
                                     disabled={!canFilterProducts}
@@ -768,33 +675,20 @@ export default function ProductsPage() {
                         </Space>
                     </SearchBar>
 
-                    {!canSearchProducts || !canFilterProducts ? (
-                        <Alert
-                            type="warning"
-                            showIcon
-                            message="Some controls are locked by policy"
-                            description={`Search ${canSearchProducts ? "enabled" : "locked"} | Filter and sort ${canFilterProducts ? "enabled" : "locked"}`}
-                        />
-                    ) : null}
+
 
                     <PageSection
-                        title="Product Catalog"
+                        title="แคตตาล็อกสินค้า"
                         extra={(
                             <Space size={8} wrap>
-                                {refreshing ? <Tag color="processing">Refreshing</Tag> : null}
-                                <Tag color={canCreateProduct ? "green" : "default"}>create</Tag>
-                                <Tag color={canEditProductCatalog ? "green" : "default"}>catalog</Tag>
-                                <Tag color={canEditProductPricing ? "gold" : "default"}>pricing</Tag>
-                                <Tag color={canEditProductStructure ? "cyan" : "default"}>structure</Tag>
-                                <Tag color={canToggleProductStatus ? "green" : "default"}>status</Tag>
-                                <Tag color={canDeleteProduct ? "red" : "default"}>delete</Tag>
+                                {refreshing ? <Tag color="processing">กำลังรีเฟรช</Tag> : null}
                             </Space>
                         )}
                     >
                         {loading && products.length === 0 ? (
-                            <PageState status="loading" title="Loading products..." />
+                            <PageState status="loading" title="กำลังโหลดสินค้า..." />
                         ) : error && products.length === 0 ? (
-                            <PageState status="error" title="Failed to load products" error={error} onRetry={() => void fetchProducts()} />
+                            <PageState status="error" title="โหลดสินค้าไม่สำเร็จ" error={error} onRetry={() => void fetchProducts()} />
                         ) : products.length > 0 ? (
                             <Space direction="vertical" size={16} style={{ width: "100%" }}>
                                 {products.map((product) => (
@@ -813,29 +707,32 @@ export default function ProductsPage() {
                                         deletingId={deletingId}
                                     />
                                 ))}
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
-                                        pageSize={pageSize}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
-                                        loading={loading || refreshing}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#4f46e5"
+                                        pageSize={pageSize}
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </Space>
                         ) : debouncedSearch.trim() || filters.status !== "all" || filters.category !== "all" ? (
                             <UIEmptyState
-                                title="No products found"
-                                description="Try a different search term or adjust your filters"
+                                title="ไม่พบสินค้า"
+                                description="ลองค้นหาด้วยคำอื่น หรือปรับฟิลเตอร์กรองข้อมูล"
                             />
                         ) : (
                             <Empty
                                 description={
                                     canCreateProduct
-                                        ? "Start by adding the first product to this branch catalog"
-                                        : "This account can view products but cannot create or edit catalog data"
+                                        ? "เริ่มต้นโดยการเพิ่มสินค้าแรกในแคตตาล็อกสาขานี้"
+                                        : "บัญชีนี้สามารถดูสินค้าได้ แต่ไม่สามารถสร้างหรือแก้ไขแคตตาล็อกได้"
                                 }
                             />
                         )}

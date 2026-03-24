@@ -1,4 +1,4 @@
-﻿
+
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -18,7 +18,8 @@ import {
     Switch,
     Alert,
     Skeleton,
-    Grid
+    Grid,
+    Pagination
 } from 'antd';
 import {
     PlusOutlined,
@@ -50,12 +51,12 @@ import PageSection from '../../../../../../components/ui/page/PageSection';
 import PageStack from '../../../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../../../components/ui/states/EmptyState';
-import ListPagination from '../../../../../../components/ui/pagination/ListPagination';
+
 import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
 import { SearchInput } from "../../../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../../../components/ui/page/SearchBar";
 import { useListState } from '../../../../../../hooks/pos/useListState';
-import { SETTINGS_CAPABILITIES, SETTINGS_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/settings-capabilities';
+
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -195,11 +196,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const isMobile = !screens.md;
     const { isAuthorized, isChecking } = useRoleGuard();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const currentRoleName = String(user?.role || '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => SETTINGS_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
+
     const canSearchAccounts = can('payment_accounts.search.feature', 'view');
     const canFilterAccounts = can('payment_accounts.filter.feature', 'view');
     const canViewAccountDetail = can('payment_accounts.detail.feature', 'view');
@@ -364,14 +361,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const catalogAccounts = accountsCatalogQuery.data?.data || [];
     const isManageLoading = accountsListQuery.isLoading;
     const isFormLoading = isEdit ? editAccountQuery.isLoading : accountsCatalogQuery.isLoading;
-    const capabilityMatrix = useMemo(
-        () =>
-            SETTINGS_CAPABILITIES.filter((item) => item.resourceKey.startsWith('payment_accounts.')).map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
+
 
     useEffect(() => {
         if (accountsListQuery.data?.total !== undefined) {
@@ -627,50 +617,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
 
             <PageContainer maxWidth={1100}>
                 <PageStack>
-                    {selectedRoleBlueprint ? (
-                        <Alert
-                            type={selectedRoleBlueprint.roleName === 'Employee' ? 'info' : 'success'}
-                            showIcon
-                            message={selectedRoleBlueprint.title}
-                            description={`${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
-                        />
-                    ) : null}
-
-                    <PageSection
-                        title="Payment Account Capability Matrix"
-                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <Row gutter={[12, 12]}>
-                            {capabilityMatrix.map((item) => (
-                                <Col xs={24} md={12} xl={8} key={item.resourceKey}>
-                                    <Card size="small" style={{ borderRadius: 16, height: '100%' }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Space style={{ justifyContent: 'space-between', width: '100%' }}>
-                                                <Text strong>{item.title}</Text>
-                                                <Tag color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                    {item.enabled ? 'Allowed' : 'Restricted'}
-                                                </Tag>
-                                            </Space>
-                                            <Text type="secondary">{item.description}</Text>
-                                            <Space wrap>
-                                                <Tag>{item.action.toUpperCase()}</Tag>
-                                                <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
-                                                    {item.securityLevel}
-                                                </Tag>
-                                            </Space>
-                                        </Space>
-                                    </Card>
-                                </Col>
-                            ))}
-                        </Row>
-                    </PageSection>
-
-                    <Alert
-                        type="warning"
-                        showIcon
-                        message="Payment account governance"
-                        description={`Search: ${canSearchAccounts ? 'ได้' : 'ไม่ได้'} | Filter: ${canFilterAccounts ? 'ได้' : 'ไม่ได้'} | Detail: ${canViewAccountDetail ? 'ได้' : 'ไม่ได้'} | Workspace: ${canOpenManager ? 'ได้' : 'ไม่ได้'} | Activate: ${canActivateAccounts ? 'ได้' : 'ไม่ได้'} | Delete: ${canDeleteAccounts ? 'ได้' : 'ไม่ได้'}`}
-                    />
+                
 
                     {isManage ? (
                         <>
@@ -808,14 +755,18 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             </div>
                                         ))}
 
-                                        <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
-                                            <ListPagination
-                                                page={page}
+                                        <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                            <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                                <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                                    ทั้งหมด {total} รายการ
+                                                </Text>
+                                            </div>
+                                            <Pagination
+                                                current={page}
                                                 total={total}
                                                 pageSize={pageSize}
-                                                onPageChange={setPage}
-                                                onPageSizeChange={setPageSize}
-                                                activeColor="#7C3AED"
+                                                onChange={(nextPage) => setPage(nextPage)}
+                                                showSizeChanger={false}
                                             />
                                         </div>
                                     </div>
@@ -860,13 +811,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             <Title level={5} style={{ margin: 0 }}>ข้อมูลบัญชีพร้อมเพย์</Title>
                                         </div>
 
-                                        <Alert
-                                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                                            showIcon
-                                            message={selectedRoleBlueprint?.title || 'Payment account governance'}
-                                            description={selectedRoleBlueprint ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}` : 'ระบบจะเปิดเฉพาะ field และ action ที่ role นี้มี capability จริง'}
-                                            style={{ marginBottom: 16 }}
-                                        />
+                                        
 
                                         <Form<PaymentAccountFormValues>
                                             form={form}

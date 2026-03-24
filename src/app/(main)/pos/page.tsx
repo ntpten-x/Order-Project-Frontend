@@ -14,7 +14,7 @@ import PageContainer from "../../../components/ui/page/PageContainer";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
-import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../lib/rbac/order-workflow-capabilities";
+
 import { formatOrderCount, useChannelStats } from "../../../utils/channels/channelStats.utils";
 
 const { Title, Text } = Typography;
@@ -187,26 +187,7 @@ export default function POSPage() {
     const { stats, isLoading: statsLoading } = useChannelStats(canViewOrderSummary);
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
-    const selectedBlueprint = useMemo(
-        () =>
-            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
-                (item) => item.roleName.toLowerCase() === String(user?.role ?? "").trim().toLowerCase()
-            ) ?? null,
-        [user?.role]
-    );
-    const channelCapabilityKeys = useMemo(
-        () => new Set(["orders.channels.feature", "orders.channel_create.feature", "orders.summary.feature"]),
-        []
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            ORDER_WORKFLOW_CAPABILITIES.filter((item) => channelCapabilityKeys.has(item.resourceKey)).map((item) => ({
-                ...item,
-                allowed: can(item.resourceKey, item.action),
-            })),
-        [can, channelCapabilityKeys]
-    );
-    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
+
 
     
 
@@ -321,56 +302,7 @@ export default function POSPage() {
             `}</style>
 
             <PageContainer>
-                {selectedBlueprint ? (
-                    <div style={{ marginBottom: 16 }}>
-                        <Alert
-                            type="info"
-                            showIcon
-                            message={`Order workflow baseline for ${selectedBlueprint.roleName}`}
-                            description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
-                        />
-                    </div>
-                ) : null}
-                <div style={{ display: "grid", gap: 12, marginBottom: 16 }}>
-                    <Alert
-                        type="success"
-                        showIcon
-                        message="Channel Capability Matrix"
-                        description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} channel capabilities enabled.`}
-                    />
-                    <div
-                        style={{
-                            display: "grid",
-                            gap: 12,
-                            gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))",
-                        }}
-                    >
-                        {capabilityMatrix.map((item) => (
-                            <div
-                                key={item.resourceKey}
-                                style={{
-                                    borderRadius: 16,
-                                    border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
-                                    background: item.allowed ? "#f0fdf4" : "#fff7f7",
-                                    padding: 14,
-                                }}
-                            >
-                                <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
-                                <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
-                                <div
-                                    style={{
-                                        marginTop: 8,
-                                        color: item.allowed ? "#166534" : "#b91c1c",
-                                        fontSize: 12,
-                                        fontWeight: 600,
-                                    }}
-                                >
-                                    {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
+        
                 {!canCreateOrder ? (
                     <Alert
                         type="warning"

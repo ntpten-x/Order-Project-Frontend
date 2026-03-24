@@ -64,10 +64,7 @@ import { useAuth } from "../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import { readCache, writeCache } from "../../../../../utils/pos/cache";
 import { useRoleGuard } from "../../../../../utils/pos/accessControl";
-import {
-    DASHBOARD_CAPABILITIES,
-    DASHBOARD_ROLE_BLUEPRINT,
-} from "../../../../../lib/rbac/dashboard-capabilities";
+
 
 const { Title, Text } = Typography;
 
@@ -188,14 +185,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const canAccessDashboardOrderDetail = can("reports.sales.order_detail.feature", "access");
     const canPrintDashboardReceipt = can("reports.sales.receipt.feature", "update");
     const currentRoleName = String(user?.role ?? "").trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => DASHBOARD_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => DASHBOARD_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
     const orderId = params.id[0];
     const backPath = searchParams.get("from") === "dashboard" ? "/pos/dashboard" : "/pos/channels";
     const branchId = user?.branch_id || user?.branch?.id || "default";
@@ -394,35 +384,9 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
             <PageContainer maxWidth={1260}>
                 <PageStack gap={14}>
-                    {selectedRoleBlueprint ? (
-                        <Alert
-                            type="info"
-                            showIcon
-                            message={`Dashboard order baseline for ${selectedRoleBlueprint.roleName}`}
-                            description={`${selectedRoleBlueprint.summary} | Allowed: ${selectedRoleBlueprint.allowed.join(", ")}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(", ")}` : ""}`}
-                        />
-                    ) : null}
 
-                    <Card size="small" style={{ borderRadius: 18 }}>
-                        <Space direction="vertical" size={10} style={{ width: "100%" }}>
-                            <Text strong>Dashboard Order Governance</Text>
-                            <Text type="secondary">
-                                Order detail access and receipt printing are separated so receipt evidence can be restricted independently from page access.
-                            </Text>
-                            <Space wrap>
-                                {capabilityMatrix
-                                    .filter((item) =>
-                                        item.resourceKey === "reports.sales.order_detail.feature" ||
-                                        item.resourceKey === "reports.sales.receipt.feature"
-                                    )
-                                    .map((item) => (
-                                        <Tag key={item.resourceKey} color={item.enabled ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
-                                            {item.title}
-                                        </Tag>
-                                    ))}
-                            </Space>
-                        </Space>
-                    </Card>
+
+
 
                     <PageSection>
                         <Row gutter={[12, 12]}>

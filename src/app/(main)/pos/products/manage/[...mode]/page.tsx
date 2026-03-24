@@ -1,18 +1,16 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Card, Col, Form, Input, Modal, Row, Space, Spin, Switch, Tag, Typography, message } from "antd";
-import { DeleteOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Space, Spin, Switch, Tag, Typography, message } from "antd";
+import { DeleteOutlined, ExclamationCircleOutlined, SaveOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import PageContainer from "../../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import {
-    PRODUCTS_CAPABILITIES,
-    PRODUCTS_ROLE_BLUEPRINT,
-} from "../../../../../../lib/rbac/products-capabilities";
+
 import { Category } from "../../../../../../types/api/pos/category";
 import { Products } from "../../../../../../types/api/pos/products";
 import { ProductsUnit } from "../../../../../../types/api/pos/productsUnit";
@@ -120,14 +118,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const isActive = Form.useWatch("is_active", form) ?? true;
 
     const currentRoleName = String(user?.role ?? "").trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => PRODUCTS_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => PRODUCTS_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
 
     const activeCategories = useMemo(() => categories.filter((item) => item.is_active), [categories]);
     const activeUnits = useMemo(() => units.filter((item) => item.is_active), [units]);
@@ -308,15 +299,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
     const handleSubmit = async (values: ProductFormValues) => {
         if (!isEdit && !canCreateProduct) {
-            message.warning("You do not have permission to create products");
+            message.warning("คุณไม่มีสิทธิ์ในการสร้างสินค้า");
             return;
         }
         if (isEdit && !canEditAnyProduct) {
-            message.warning("You do not have permission to update products");
+            message.warning("คุณไม่มีสิทธิ์ในการแก้ไขสินค้า");
             return;
         }
         if (!isEdit && !setupState.isReady) {
-            message.warning(setupMessage || "Product setup is not ready");
+            message.warning(setupMessage || "ระบบยังไม่พร้อมสำหรับสร้างสินค้า");
             return;
         }
         setSubmitting(true);
@@ -325,7 +316,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
             const payload = isEdit ? buildUpdatePayload(values) : buildCreatePayload(values);
 
             if (isEdit && Object.keys(payload).length === 0) {
-                message.warning("No authorized changes detected");
+                message.warning("ไม่พบการเปลี่ยนแปลงใดๆ");
                 return;
             }
 
@@ -340,14 +331,14 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
             if (!response.ok) {
                 const errorPayload = await response.json().catch(() => ({}));
-                throw new Error(errorPayload.error || errorPayload.message || "Failed to save product");
+                throw new Error(errorPayload.error || errorPayload.message || "บันทึกสินค้าไม่สำเร็จ");
             }
 
-            message.success(isEdit ? "Product updated successfully" : "Product created successfully");
+            message.success(isEdit ? "อัปเดตข้อมูลสินค้าเรียบร้อยแล้ว" : "สร้างสินค้าเรียบร้อยแล้ว");
             router.replace("/pos/products");
         } catch (submitError) {
             console.error(submitError);
-            message.error(submitError instanceof Error ? submitError.message : "Failed to save product");
+            message.error(submitError instanceof Error ? submitError.message : "บันทึกสินค้าไม่สำเร็จ");
         } finally {
             setSubmitting(false);
         }
@@ -356,10 +347,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id || !canDeleteProduct) return;
         Modal.confirm({
-            title: "Delete product",
-            content: `Delete "${displayName || "-"}" from this branch catalog?`,
-            okText: "Delete",
-            cancelText: "Cancel",
+            title: "ลบสินค้า",
+            content: `ต้องการลบ "${displayName || "-"}" ออกจากแคตตาล็อกสาขานี้ใช่หรือไม่?`,
+            okText: "ลบ",
+            cancelText: "ยกเลิก",
             okType: "danger",
             centered: true,
             icon: <DeleteOutlined style={{ color: "#ef4444" }} />,
@@ -372,33 +363,37 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                     });
                     if (!response.ok) {
                         const errorPayload = await response.json().catch(() => ({}));
-                        throw new Error(errorPayload.error || errorPayload.message || "Failed to delete product");
+                        throw new Error(errorPayload.error || errorPayload.message || "ลบสินค้าไม่สำเร็จ");
                     }
-                    message.success("Product deleted successfully");
+                    message.success("ลบสินค้าเรียบร้อยแล้ว");
                     router.replace("/pos/products");
                 } catch (deleteError) {
                     console.error(deleteError);
-                    message.error(deleteError instanceof Error ? deleteError.message : "Failed to delete product");
+                    message.error(deleteError instanceof Error ? deleteError.message : "ลบสินค้าไม่สำเร็จ");
                 }
             },
         });
     };
 
-    if (isChecking || permissionLoading) return <AccessGuardFallback message="Checking product permissions..." />;
-    if (!isAuthorized) return <AccessGuardFallback message="You do not have permission to access this page" tone="danger" />;
-    if (mode === "add" && !canCreateProduct) return <AccessGuardFallback message="You do not have permission to create products" tone="danger" />;
-    if (mode === "edit" && !canEditAnyProduct) return <AccessGuardFallback message="You do not have permission to edit this product" tone="danger" />;
+    if (isChecking || permissionLoading) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์ในการเข้าถึงหน้านี้" tone="danger" />;
+    if (mode === "add" && !canCreateProduct) return <AccessGuardFallback message="คุณไม่มีสิทธิ์ในการสร้างสินค้า" tone="danger" />;
+    if (mode === "edit" && !canEditAnyProduct) return <AccessGuardFallback message="คุณไม่มีสิทธิ์ในการแก้ไขข้อมูลสินค้านี้" tone="danger" />;
 
     return (
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
-            <PageHeader
-                isEdit={isEdit}
+            <UIPageHeader
+                title={isEdit ? "แก้ไขข้อมูลสินค้า" : "เพิ่มสินค้าใหม่"}
                 onBack={() => router.replace("/pos/products")}
-                onDelete={canDeleteProduct ? handleDelete : undefined}
+                actions={isEdit && canDeleteProduct ? (
+                    <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
+                        ลบ
+                    </Button>
+                ) : null}
             />
 
-            <PageContainer maxWidth={1120}>
+            <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: "transparent", border: "none" }}>
                     {loading ? (
                         <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
@@ -409,24 +404,12 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             <Col xs={24} lg={15}>
                                 <Card bordered={false} style={{ borderRadius: 22 }}>
                                     <Space direction="vertical" size={12} style={{ width: "100%", marginBottom: 20 }}>
-                                        <Alert
-                                            type={selectedRoleBlueprint?.roleName === "Employee" ? "info" : "success"}
-                                            showIcon
-                                            message={selectedRoleBlueprint?.title || "Products Governance"}
-                                            description={
-                                                selectedRoleBlueprint
-                                                    ? `${selectedRoleBlueprint.summary} | Allowed: ${selectedRoleBlueprint.allowed.join(", ")}${
-                                                        selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(", ")}` : ""
-                                                    }`
-                                                    : "Capability-based governance is active for this page"
-                                            }
-                                        />
                                         {!setupState.isReady ? (
                                             <Alert
                                                 type="warning"
                                                 showIcon
-                                                message="Catalog dependencies are incomplete"
-                                                description={setupMessage || "Activate at least one category and one unit before creating products"}
+                                                message="ข้อมูลพื้นฐานสำหรับการตั้งค่าสินค้าไม่ครบถ้วน"
+                                                description={setupMessage || "โปรดเปิดใช้งานหมวดหมู่และหน่วยสินค้าอย่างน้อยอย่างละ 1 รายการก่อนสร้างสินค้า"}
                                             />
                                         ) : null}
                                     </Space>
@@ -449,28 +432,28 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label="Product name"
+                                            label="ชื่อสินค้า"
                                             validateTrigger={["onBlur", "onSubmit"]}
                                             rules={[
-                                                { required: true, message: "Please enter a product name" },
-                                                { max: 100, message: "Product name must be 100 characters or fewer" },
+                                                { required: true, message: "โปรดป้อนชื่อสินค้า" },
+                                                { max: 100, message: "ชื่อสินค้าต้องไม่เกิน 100 ตัวอักษร" },
                                                 {
                                                     validator: async (_, value: string) => {
                                                         if (!value?.trim()) return;
-                                                        if (await checkNameConflict(value)) throw new Error("This product name is already in use");
+                                                        if (await checkNameConflict(value)) throw new Error("ชื่อสินค้านี้ถูกใช้งานแล้ว");
                                                     },
                                                 },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="Americano, Latte, Fried rice..." disabled={isEdit && !canEditCatalog} />
+                                            <Input size="large" maxLength={100} placeholder="อเมริกาโน่, ลาเต้, ข้าวผัด..." disabled={isEdit && !canEditCatalog} />
                                         </Form.Item>
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="price"
-                                                    label="Store price"
-                                                    rules={[{ required: true, message: "Please enter a price" }]}
+                                                    label="ราคาหน้าร้าน"
+                                                    rules={[{ required: true, message: "โปรดระบุราคา" }]}
                                                 >
                                                     <Input
                                                         inputMode="numeric"
@@ -485,7 +468,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="price_delivery" label="Delivery price">
+                                                <Form.Item name="price_delivery" label="ราคาเดลิเวอรี่">
                                                     <Input
                                                         inputMode="numeric"
                                                         placeholder="0"
@@ -504,11 +487,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="category_id"
-                                                    label="Category"
-                                                    rules={[{ required: true, message: "Please select a category" }]}
+                                                    label="หมวดหมู่"
+                                                    rules={[{ required: true, message: "โปรดเลือกหมวดหมู่" }]}
                                                 >
                                                     <ModalSelector<string>
-                                                        title="Select category"
+                                                        title="เลือกหมวดหมู่"
                                                         value={selectedCategoryId}
                                                         onChange={(value) => form.setFieldValue("category_id", value)}
                                                         options={availableCategories.map((item) => ({
@@ -518,7 +501,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                         }))}
                                                         showSearch
                                                         disabled={isEdit && !canEditStructure}
-                                                        placeholder="Select category"
+                                                        placeholder="เลือกหมวดหมู่"
                                                         style={{ minHeight: 46, borderRadius: 12, padding: "10px 16px" }}
                                                     />
                                                 </Form.Item>
@@ -526,11 +509,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="unit_id"
-                                                    label="Unit"
-                                                    rules={[{ required: true, message: "Please select a unit" }]}
+                                                    label="หน่วย"
+                                                    rules={[{ required: true, message: "โปรดเลือกหน่วยสินค้า" }]}
                                                 >
                                                     <ModalSelector<string>
-                                                        title="Select unit"
+                                                        title="เลือกหน่วยสินค้า"
                                                         value={selectedUnitId}
                                                         onChange={(value) => form.setFieldValue("unit_id", value)}
                                                         options={availableUnits.map((item) => ({
@@ -540,7 +523,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                         }))}
                                                         showSearch
                                                         disabled={isEdit && !canEditStructure}
-                                                        placeholder="Select unit"
+                                                        placeholder="เลือกหน่วยสินค้า"
                                                         style={{ minHeight: 46, borderRadius: 12, padding: "10px 16px" }}
                                                     />
                                                 </Form.Item>
@@ -549,11 +532,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                                         <Form.Item
                                             name="topping_group_ids"
-                                            label="Topping groups"
-                                            extra="Select topping groups that should be available when this product is ordered"
+                                            label="กลุ่มท็อปปิ้ง"
+                                            extra="เลือกกลุ่มท็อปปิ้งที่ต้องการให้ออเดอร์ร่วมกับสินค้านี้ได้"
                                         >
                                             <ModalSelector<string>
-                                                title="Select topping groups"
+                                                title="เลือกกลุ่มท็อปปิ้ง"
                                                 value={toppingGroupIds}
                                                 onChange={(value) => form.setFieldValue("topping_group_ids", value)}
                                                 multiple
@@ -564,7 +547,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     value: item.id,
                                                     searchLabel: item.display_name,
                                                 }))}
-                                                placeholder="No topping groups"
+                                                placeholder="ไม่มีกลุ่มท็อปปิ้ง"
                                                 style={{ minHeight: 46, borderRadius: 12, padding: "10px 16px" }}
                                             />
                                         </Form.Item>
@@ -572,12 +555,13 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Form.Item
                                             name="img_url"
                                             label="Image URL"
+                                            validateTrigger={["onBlur", "onSubmit"]}
                                             rules={[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
                                                         if (!value?.trim()) return;
                                                         if (!isSupportedImageSource(normalizeImageSource(value))) {
-                                                            throw new Error("Only http(s), data:image, and blob image sources are supported");
+                                                            throw new Error("รองรับเฉพาะลิงก์ http(s), data:image หรือ blob เท่านั้น");
                                                         }
                                                     },
                                                 },
@@ -586,16 +570,16 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Input size="large" placeholder="https://example.com/image.jpg" disabled={isEdit && !canEditCatalog} />
                                         </Form.Item>
 
-                                        <Form.Item name="description" label="Description">
-                                            <TextArea rows={4} maxLength={500} placeholder="Optional catalog note or description" disabled={isEdit && !canEditCatalog} />
+                                        <Form.Item name="description" label="คำอธิบาย">
+                                            <TextArea rows={4} maxLength={500} placeholder="เพิ่มคำอธิบายหรือหมายเหตุสำหรับสินค้า (ถ้ามี)" disabled={isEdit && !canEditCatalog} />
                                         </Form.Item>
 
                                         <div style={{ padding: 16, background: "#f8fafc", borderRadius: 14, marginBottom: 18 }}>
                                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
                                                 <div>
-                                                    <Text strong>Product status</Text>
+                                                    <Text strong>สถานะสินค้า</Text>
                                                     <Text type="secondary" style={{ display: "block", fontSize: 13 }}>
-                                                        Control whether this product appears in POS ordering flows
+                                                        ควบคุมการแสดงผลของสินค้านี้ในหน้าขาย (POS)
                                                     </Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
@@ -604,37 +588,45 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             </div>
                                         </div>
 
-                                        <ActionButtons
-                                            isEdit={isEdit}
-                                            loading={submitting}
-                                            onCancel={() => router.replace("/pos/products")}
-                                        />
+                                        <div style={{ display: "flex", gap: 12 }}>
+                                            <Button
+                                                size="large"
+                                                onClick={() => router.replace("/pos/products")}
+                                                style={{ flex: 1, borderRadius: 14, height: 48 }}
+                                            >
+                                                ยกเลิก
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                size="large"
+                                                loading={submitting}
+                                                disabled={isEdit ? !canEditAnyProduct : !canCreateProduct}
+                                                icon={<SaveOutlined />}
+                                                style={{
+                                                    flex: 2,
+                                                    borderRadius: 14,
+                                                    height: 48,
+                                                    background: "linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)",
+                                                    border: "none",
+                                                    fontWeight: 600,
+                                                    boxShadow: "0 4px 12px rgba(79, 70, 229, 0.4)",
+                                                }}
+                                            >
+                                                บันทึกข้อมูล
+                                            </Button>
+                                        </div>
                                     </Form>
                                 </Card>
                             </Col>
 
                             <Col xs={24} lg={9}>
                                 <div style={{ display: "grid", gap: 14 }}>
-                                    <Card style={{ borderRadius: 20 }}>
-                                        <Title level={5} style={{ color: "#4f46e5", marginBottom: 16 }}>
-                                            Products Governance
-                                        </Title>
-                                        <Space size={[8, 8]} wrap style={{ marginBottom: 12 }}>
-                                            <Tag color={canCreateProduct ? "green" : "default"}>create</Tag>
-                                            <Tag color={canEditCatalog ? "green" : "default"}>catalog</Tag>
-                                            <Tag color={canEditPricing ? "gold" : "default"}>pricing</Tag>
-                                            <Tag color={canEditStructure ? "cyan" : "default"}>structure</Tag>
-                                            <Tag color={canToggleStatus ? "green" : "default"}>status</Tag>
-                                            <Tag color={canDeleteProduct ? "red" : "default"}>delete</Tag>
-                                        </Space>
-                                        <Text type="secondary">
-                                            This workspace separates catalog, pricing, structure, status, and delete controls so each role only changes the product domains it is trusted to own.
-                                        </Text>
-                                    </Card>
+
 
                                     <Card style={{ borderRadius: 20 }}>
                                         <Title level={5} style={{ color: "#4f46e5", marginBottom: 16 }}>
-                                            Product preview
+                                            ตัวอย่างสินค้าหน้า POS
                                         </Title>
                                         <ProductPreview
                                             name={displayName}
@@ -646,42 +638,14 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         />
                                     </Card>
 
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                                            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                                                <ExclamationCircleOutlined style={{ color: "#0369a1" }} />
-                                                <Text strong>Capability Matrix</Text>
-                                            </div>
-                                            {capabilityMatrix.map((item) => (
-                                                <div
-                                                    key={item.resourceKey}
-                                                    style={{
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        gap: 12,
-                                                        padding: "10px 12px",
-                                                        borderRadius: 12,
-                                                        background: item.enabled ? "#eef2ff" : "#f8fafc",
-                                                    }}
-                                                >
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <Text strong>{item.title}</Text>
-                                                        <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
-                                                            {item.description}
-                                                        </Text>
-                                                    </div>
-                                                    <Tag color={item.enabled ? "green" : "default"}>{item.enabled ? "Enabled" : "Locked"}</Tag>
-                                                </div>
-                                            ))}
-                                        </Space>
-                                    </Card>
+
 
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>
                                             <Space direction="vertical" size={4}>
-                                                <Text strong>Audit metadata</Text>
-                                                <Text type="secondary">Created {formatDate(originalProduct?.create_date)}</Text>
-                                                <Text type="secondary">Updated {formatDate(originalProduct?.update_date)}</Text>
+                                                <Text strong>ข้อมูลการตรวจสอบ</Text>
+                                                <Text type="secondary">สร้างเมื่อ {formatDate(originalProduct?.create_date)}</Text>
+                                                <Text type="secondary">อัปเดตเมื่อ {formatDate(originalProduct?.update_date)}</Text>
                                             </Space>
                                         </Card>
                                     ) : null}

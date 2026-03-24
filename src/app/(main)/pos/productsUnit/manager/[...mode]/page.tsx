@@ -20,10 +20,7 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/productsUnit/style';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { useAuth } from '../../../../../../contexts/AuthContext';
-import {
-    PRODUCTS_UNIT_CAPABILITIES,
-    PRODUCTS_UNIT_ROLE_BLUEPRINT,
-} from '../../../../../../lib/rbac/products-unit-capabilities';
+
 
 const { Title, Text } = Typography;
 
@@ -79,15 +76,8 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         canOpenManager;
     const canSubmitAdd = canCreateProductsUnit;
     const canSubmitEdit = canEditProductsUnit || canUpdateProductsUnitStatus;
-    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => PRODUCTS_UNIT_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => PRODUCTS_UNIT_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
+
     const title = useMemo(() => (isEdit ? 'แก้ไขหน่วยสินค้า' : 'เพิ่มหน่วยสินค้า'), [isEdit]);
 
     useEffect(() => {
@@ -271,33 +261,9 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                         <Row gutter={[20, 20]}>
                             <Col xs={24} lg={15}>
                                 <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                                    <Alert
-                                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                                        showIcon
-                                        message={selectedRoleBlueprint?.title || 'Products unit permissions'}
-                                        description={
-                                            selectedRoleBlueprint
-                                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                                : 'ระบบสิทธิ์ของหน่วยสินค้าถูกแยกเป็น capability แบบละเอียด'
-                                        }
-                                    />
+                                    
 
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Text strong>Products Unit Governance</Text>
-                                            <Text type="secondary">Capability ของหน่วยสินค้าถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/edit/status/delete แบบราย action</Text>
-                                            <Space wrap>
-                                                {PRODUCTS_UNIT_CAPABILITIES.map((item) => {
-                                                    const enabled = capabilityMatrix.find((candidate) => candidate.resourceKey === item.resourceKey)?.enabled;
-                                                    return (
-                                                        <Tag key={item.resourceKey} color={enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                            {item.title}
-                                                        </Tag>
-                                                    );
-                                                })}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+                                    
 
                                     {!canEditProductsUnit || !canUpdateProductsUnitStatus ? (
                                         <Alert

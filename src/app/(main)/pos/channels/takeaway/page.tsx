@@ -43,7 +43,7 @@ import { buildTableQrExportCanvas, downloadCanvasAsPng } from "../../../../../ut
 import { closePrintWindow, getPrintSettings, reservePrintWindow } from "../../../../../utils/print-settings/runtime";
 import { createTableQrPrintDocument } from "../../../../../utils/print-settings/tableQrPrintExport";
 import { getTakeawayCustomerLabel } from "../../../../../utils/orders";
-import { ORDER_WORKFLOW_CAPABILITIES, ORDER_WORKFLOW_ROLE_BLUEPRINT } from "../../../../../lib/rbac/order-workflow-capabilities";
+
 
 const { Text } = Typography;
 const EXPORT_QR_CANVAS_SIZE = 2048;
@@ -355,33 +355,7 @@ function TakeawayContent({
     const [isExportingQr, setIsExportingQr] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
     const [csrfToken, setCsrfToken] = useState("");
-    const selectedBlueprint = useMemo(
-        () =>
-            ORDER_WORKFLOW_ROLE_BLUEPRINT.find(
-                (item) => item.roleName.toLowerCase() === roleName.trim().toLowerCase()
-            ) ?? null,
-        [roleName]
-    );
-    const channelCapabilityKeys = useMemo(
-        () =>
-            new Set([
-                "orders.channels.feature",
-                "orders.search.feature",
-                "orders.filter.feature",
-                "orders.channel_create.feature",
-                "orders.detail.feature",
-            ]),
-        []
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            ORDER_WORKFLOW_CAPABILITIES.filter((item) => channelCapabilityKeys.has(item.resourceKey)).map((item) => ({
-                ...item,
-                allowed: can(item.resourceKey, item.action),
-            })),
-        [can, channelCapabilityKeys]
-    );
-    const allowedCapabilityCount = capabilityMatrix.filter((item) => item.allowed).length;
+
 
     const {
         page, setPage, pageSize, setPageSize, total, setTotal,
@@ -750,39 +724,7 @@ function TakeawayContent({
 
                 <PageContainer style={{ flex: 1, width: '100%', maxWidth: '100%' }}>
                     <Space direction="vertical" size={12} style={{ width: "100%", marginBottom: 16 }}>
-                        {selectedBlueprint ? (
-                            <Alert
-                                type="info"
-                                showIcon
-                                message={`Takeaway baseline for ${selectedBlueprint.roleName}`}
-                                description={`${selectedBlueprint.summary} | Allowed: ${selectedBlueprint.allowed.join(", ")}${selectedBlueprint.denied.length > 0 ? ` | Restricted: ${selectedBlueprint.denied.join(", ")}` : ""}`}
-                            />
-                        ) : null}
-                        <Alert
-                            type="success"
-                            showIcon
-                            message="Takeaway Capability Matrix"
-                            description={`This role currently has ${allowedCapabilityCount}/${capabilityMatrix.length} takeaway capabilities enabled.`}
-                        />
-                        <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "repeat(3, minmax(0, 1fr))" }}>
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 16,
-                                        border: `1px solid ${item.allowed ? "#bbf7d0" : "#fecaca"}`,
-                                        background: item.allowed ? "#f0fdf4" : "#fff7f7",
-                                        padding: 14,
-                                    }}
-                                >
-                                    <div style={{ fontWeight: 700, color: "#0f172a", marginBottom: 6 }}>{item.title}</div>
-                                    <div style={{ color: "#475569", fontSize: 13, lineHeight: 1.5 }}>{item.description}</div>
-                                    <div style={{ marginTop: 8, color: item.allowed ? "#166534" : "#b91c1c", fontSize: 12, fontWeight: 600 }}>
-                                        {item.allowed ? "Allowed" : "Restricted"} | {item.action} | {item.securityLevel}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                        
                         {(!canCreateOrder || !canViewTakeawayQr || !canExportTakeawayQr) ? (
                             <Alert
                                 type="warning"

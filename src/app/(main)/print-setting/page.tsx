@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -56,11 +56,7 @@ import { useRoleGuard } from '../../../utils/pos/accessControl';
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useRealtimeRefresh } from '../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../utils/realtimeEvents';
-import {
-    PRINT_SETTINGS_CAPABILITIES,
-    PRINT_SETTINGS_ROLE_BLUEPRINT,
-    getPrintSettingsCapability,
-} from '../../../lib/rbac/print-settings-capabilities';
+
 import {
     PRINT_DOCUMENT_META,
     PRINT_PRESET_OPTIONS,
@@ -253,18 +249,7 @@ export default function PrintSettingPage() {
     const [branchLabel, setBranchLabel] = useState(() => user?.branch?.branch_name || 'สาขาปัจจุบัน');
 
     const branchName = branchLabel;
-    const activeRoleBlueprint = useMemo(
-        () => PRINT_SETTINGS_ROLE_BLUEPRINT.find((item) => item.roleName === user?.role) ?? PRINT_SETTINGS_ROLE_BLUEPRINT[2],
-        [user?.role]
-    );
-    const restrictedCapabilities = useMemo(
-        () => PRINT_SETTINGS_CAPABILITIES.filter((item) => !can(item.resourceKey, item.action)).map((item) => item.title),
-        [can]
-    );
-    const enabledCapabilities = useMemo(
-        () => PRINT_SETTINGS_CAPABILITIES.filter((item) => can(item.resourceKey, item.action)).map((item) => item.title),
-        [can]
-    );
+
 
     /* ─── Data logic (same as original) ────────────────────────────────── */
 
@@ -585,14 +570,7 @@ export default function PrintSettingPage() {
                         />
                     )}
 
-                    {restrictedCapabilities.length > 0 && (
-                        <Alert
-                            showIcon
-                            type={restrictedCapabilities.length >= 3 ? 'warning' : 'info'}
-                            message="สิทธิ์ของบัญชีนี้"
-                            description={`เปิดใช้ได้ ${enabledCapabilities.length} capability และถูกจำกัด ${restrictedCapabilities.length} capability: ${restrictedCapabilities.slice(0, 4).join(', ')}${restrictedCapabilities.length > 4 ? ' ...' : ''}`}
-                        />
-                    )}
+
 
                     {/* Summary chips */}
                     <div className="ps-chips">
@@ -975,29 +953,7 @@ export default function PrintSettingPage() {
                                 </div>
                             </div>
 
-                            <div className="ps-card">
-                                <div className="ps-card__header">
-                                    <h3 className="ps-card__title">นโยบายสิทธิ์ของบทบาทนี้</h3>
-                                    <Tag color="purple">{activeRoleBlueprint.roleName}</Tag>
-                                </div>
-                                <div className="ps-card__body--compact" style={{ display: 'grid', gap: 12 }}>
-                                    <Text type="secondary">{activeRoleBlueprint.summary}</Text>
-                                    <div>
-                                        <Text strong>ทำได้</Text>
-                                        <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
-                                            {activeRoleBlueprint.allowed.map((item) => <Tag key={item} color="green">{item}</Tag>)}
-                                        </div>
-                                    </div>
-                                    {activeRoleBlueprint.denied.length > 0 && (
-                                        <div>
-                                            <Text strong>ทำไม่ได้</Text>
-                                            <div style={{ display: 'grid', gap: 6, marginTop: 6 }}>
-                                                {activeRoleBlueprint.denied.map((item) => <Tag key={item} color="red">{item}</Tag>)}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
+
 
                             {/* Branch settings */}
                             <div className="ps-card">
@@ -1051,28 +1007,7 @@ export default function PrintSettingPage() {
                                 </div>
                             </div>
 
-                            <div className="ps-card">
-                                <div className="ps-card__header">
-                                    <h3 className="ps-card__title">Capability Matrix</h3>
-                                </div>
-                                <div className="ps-card__body--compact" style={{ display: 'grid', gap: 10 }}>
-                                    {PRINT_SETTINGS_CAPABILITIES.map((item) => {
-                                        const allowed = can(item.resourceKey, item.action);
-                                        const meta = getPrintSettingsCapability(item.resourceKey);
-                                        return (
-                                            <div key={item.resourceKey} className="ps-auto-item">
-                                                <div>
-                                                    <div className="ps-auto-item__title">{item.title}</div>
-                                                    <div className="ps-auto-item__desc">{meta?.description}</div>
-                                                </div>
-                                                <Tag color={allowed ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                    {allowed ? 'Allowed' : 'Locked'}
-                                                </Tag>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
+
                         </div>
                     </div>
                 </PageStack>

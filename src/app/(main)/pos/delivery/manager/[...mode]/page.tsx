@@ -23,7 +23,7 @@ import { isSupportedImageSource, normalizeImageSource, resolveImageSource } from
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import SmartAvatar from '../../../../../../components/ui/image/SmartAvatar';
 import { useAuth } from '../../../../../../contexts/AuthContext';
-import { DELIVERY_CAPABILITIES, DELIVERY_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/delivery-capabilities';
+
 
 type DeliveryManageMode = 'add' | 'edit';
 
@@ -159,18 +159,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const canSubmitAdd = canCreateDelivery;
     const canSubmitEdit = canEditDelivery || canUpdateStatus;
     const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => DELIVERY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            DELIVERY_CAPABILITIES.map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
+
 
     const modeTitle = useMemo(() => (isEdit ? 'แก้ไขช่องทางจัดส่ง' : 'เพิ่มช่องทางจัดส่ง'), [isEdit]);
 
@@ -399,16 +388,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                        <Alert
-                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                            showIcon
-                            message={selectedRoleBlueprint?.title || 'Delivery manager permissions'}
-                            description={
-                                selectedRoleBlueprint
-                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                    : 'ระบบจะเปิดเฉพาะ field และ action ที่บัญชีนี้มีสิทธิ์'
-                            }
-                        />
+
                         {isEdit && !canSubmitEdit ? (
                             <Alert
                                 type="warning"
@@ -590,22 +570,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                         </Card>
                                     ) : null}
 
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Text strong>Delivery Governance</Text>
-                                            <Text type="secondary">Capability ถูกแยกจาก page access เพื่อคุม search/filter/create/edit/status/delete ตาม action จริง</Text>
-                                            <Space wrap>
-                                                {DELIVERY_CAPABILITIES.map((item) => {
-                                                    const enabled = capabilityMatrix.find((candidate) => candidate.resourceKey === item.resourceKey)?.enabled;
-                                                    return (
-                                                        <Tag key={item.resourceKey} color={enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                            {item.title}
-                                                        </Tag>
-                                                    );
-                                                })}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+
                                 </div>
                             </Col>
                         </Row>

@@ -18,7 +18,7 @@ import { Topping } from '../../../../../../types/api/pos/topping';
 import { ToppingGroup } from '../../../../../../types/api/pos/toppingGroup';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 import { pageStyles, ManagePageStyles, ToppingPreview } from './style';
-import { TOPPING_CAPABILITIES, TOPPING_ROLE_BLUEPRINT } from '../../../../../../lib/rbac/topping-capabilities';
+
 
 const { Title, Text } = Typography;
 
@@ -92,14 +92,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const toppingGroupIds = useMemo(() => watchedToppingGroupIds ?? [], [watchedToppingGroupIds]);
 
     const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => TOPPING_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => TOPPING_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
     const selectedCategories = useMemo(
         () => categories.filter((category) => categoryIds.includes(category.id)),
         [categories, categoryIds]
@@ -316,26 +309,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
-                    <Space direction="vertical" size={16} style={{ width: '100%', marginBottom: 16 }}>
-                        <Alert
-                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                            showIcon
-                            message={selectedRoleBlueprint?.title || 'Topping governance'}
-                            description={
-                                selectedRoleBlueprint
-                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                    : 'เปิดเฉพาะ field และ action ที่ role นี้มี capability จริง'
-                            }
-                        />
-                        {(!canEditToppingCatalog || !canEditToppingPricing || !canUpdateToppingStatus) ? (
-                            <Alert
-                                type="warning"
-                                showIcon
-                                message="Some topping manager controls are restricted by policy"
-                                description="field catalog, pricing และ switch สถานะจะถูกปิดตาม capability ของ role นี้"
-                            />
-                        ) : null}
-                    </Space>
+
 
                     {loading ? (
                         <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
@@ -582,27 +556,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         />
                                     </Card>
 
-                                    <Card bordered={false} style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                                            <Space>
-                                                <ExclamationCircleOutlined style={{ color: '#2563eb' }} />
-                                                <Text strong>Topping Governance</Text>
-                                            </Space>
-                                            <Text type="secondary">
-                                                Capability ของ pos/topping ถูกแยกออกจาก page access เพื่อควบคุม search, filter, manager workspace, create, catalog, pricing, status และ delete แบบราย action
-                                            </Text>
-                                            <Space wrap>
-                                                {capabilityMatrix.map((item) => (
-                                                    <Tag
-                                                        key={item.resourceKey}
-                                                        color={item.enabled ? 'blue' : item.securityLevel === 'governance' ? 'red' : 'default'}
-                                                    >
-                                                        {item.title}
-                                                    </Tag>
-                                                ))}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+
 
                                     {isEdit ? (
                                         <Card bordered={false} style={{ borderRadius: 16 }}>

@@ -78,10 +78,7 @@ import {
 import { applyPresetToDocument } from "../../../../utils/print-settings/defaults";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { PrintPreset } from "../../../../types/api/pos/printSettings";
-import {
-  DASHBOARD_CAPABILITIES,
-  DASHBOARD_ROLE_BLUEPRINT,
-} from "../../../../lib/rbac/dashboard-capabilities";
+
 
 const { Title, Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -921,21 +918,7 @@ export default function DashboardPage() {
   const canOpenDashboardOrderDetail = can("reports.sales.order_detail.feature", "access");
   const canExportDashboard = can("reports.sales.export.feature", "update");
   const currentRoleName = String(user?.role ?? "").trim().toLowerCase();
-  const selectedRoleBlueprint = useMemo(
-    () =>
-      DASHBOARD_ROLE_BLUEPRINT.find(
-        (item) => item.roleName.toLowerCase() === currentRoleName,
-      ) ?? null,
-    [currentRoleName],
-  );
-  const capabilityMatrix = useMemo(
-    () =>
-      DASHBOARD_CAPABILITIES.map((item) => ({
-        ...item,
-        enabled: can(item.resourceKey, item.action),
-      })),
-    [can],
-  );
+
 
   const [preset, setPreset] = useState<PresetKey>("today");
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>(
@@ -1385,46 +1368,9 @@ export default function DashboardPage() {
 
       <PageContainer maxWidth={1400}>
         <PageStack gap={12}>
-          {selectedRoleBlueprint ? (
-            <Alert
-              type="info"
-              showIcon
-              message={`Dashboard baseline for ${selectedRoleBlueprint.roleName}`}
-              description={`${selectedRoleBlueprint.summary} | Allowed: ${selectedRoleBlueprint.allowed.join(", ")}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(", ")}` : ""}`}
-            />
-          ) : null}
 
-          <Card size="small" title="Dashboard Capability Matrix" style={{ borderRadius: 20 }}>
-            <div style={{ display: "grid", gap: 10 }}>
-              {capabilityMatrix.map((item) => (
-                <div
-                  key={item.resourceKey}
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 12,
-                    padding: "10px 12px",
-                    borderRadius: 16,
-                    border: "1px solid #E2E8F0",
-                    background: item.enabled ? "#F0FDF4" : "#F8FAFC",
-                  }}
-                >
-                  <div style={{ minWidth: 0 }}>
-                    <Text strong style={{ display: "block", color: "#0F172A" }}>
-                      {item.title}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {item.description}
-                    </Text>
-                  </div>
-                  <Tag color={item.enabled ? "green" : item.securityLevel === "governance" ? "red" : "default"}>
-                    {item.enabled ? "Allowed" : "Restricted"}
-                  </Tag>
-                </div>
-              ))}
-            </div>
-          </Card>
+
+
 
           {hiddenSections.length > 0 ? (
             <Alert

@@ -23,10 +23,7 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/paymentMethod/style';
 import { PaymentMethod } from '../../../../../../types/api/pos/paymentMethod';
 import { useAuth } from '../../../../../../contexts/AuthContext';
-import {
-    PAYMENT_METHOD_CAPABILITIES,
-    PAYMENT_METHOD_ROLE_BLUEPRINT,
-} from '../../../../../../lib/rbac/payment-method-capabilities';
+
 
 type ManageMode = 'add' | 'edit';
 
@@ -111,15 +108,8 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         canOpenManager;
     const canSubmitAdd = canCreatePaymentMethods;
     const canSubmitEdit = canEditPaymentMethodCatalog || canUpdatePaymentMethodStatus;
-    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => PAYMENT_METHOD_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => PAYMENT_METHOD_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
+
     const title = useMemo(() => (isEdit ? 'แก้ไขวิธีการชำระเงิน' : 'เพิ่มวิธีการชำระเงิน'), [isEdit]);
 
     useEffect(() => {
@@ -332,16 +322,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     <div style={{ display: 'grid', gap: 12, marginBottom: 16 }}>
-                        <Alert
-                            type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                            showIcon
-                            message={selectedRoleBlueprint?.title || 'Payment method manager permissions'}
-                            description={
-                                selectedRoleBlueprint
-                                    ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                    : 'ระบบจะเปิดเฉพาะ field และ action ที่บัญชีนี้มีสิทธิ์'
-                            }
-                        />
+                        
                         {isEdit && !canSubmitEdit ? (
                             <Alert
                                 type="warning"
@@ -507,22 +488,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                             <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalPaymentMethod?.create_date)}</Text>
                                         </Card>
                                     ) : null}
-                                    <Card style={{ borderRadius: 16 }}>
-                                        <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                            <Text strong>Payment Method Governance</Text>
-                                            <Text type="secondary">Capability ของวิธีชำระเงินถูกแยกออกจาก page access เพื่อควบคุม search/filter/create/catalog/status/delete แบบราย action</Text>
-                                            <Space wrap>
-                                                {PAYMENT_METHOD_CAPABILITIES.map((item) => {
-                                                    const enabled = capabilityMatrix.find((candidate) => candidate.resourceKey === item.resourceKey)?.enabled;
-                                                    return (
-                                                        <Tag key={item.resourceKey} color={enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                            {item.title}
-                                                        </Tag>
-                                                    );
-                                                })}
-                                            </Space>
-                                        </Space>
-                                    </Card>
+                                    
                                 </div>
                             </Col>
                         </Row>

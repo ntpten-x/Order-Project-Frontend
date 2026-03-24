@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
+import { Alert, Button, Pagination, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
     DeleteOutlined,
     EditOutlined,
@@ -25,7 +25,7 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
-import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
@@ -33,10 +33,7 @@ import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissio
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
-import {
-    PRODUCTS_UNIT_CAPABILITIES,
-    PRODUCTS_UNIT_ROLE_BLUEPRINT,
-} from '../../../../lib/rbac/products-unit-capabilities';
+
 
 const { Text } = Typography;
 
@@ -222,15 +219,8 @@ export default function ProductsUnitPage() {
         canOpenProductsUnitManager;
     const canOpenProductsUnitEditWorkspace =
         canOpenProductsUnitManager && (canEditProductsUnit || canToggleProductsUnitStatus || canDeleteProductsUnit);
-    const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => PRODUCTS_UNIT_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () => PRODUCTS_UNIT_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
+
+
     const isDefaultListView = useMemo(
         () => page === 1 && pageSize === 10 && createdSort === DEFAULT_CREATED_SORT && !debouncedSearch.trim() && filters.status === 'all',
         [createdSort, debouncedSearch, filters.status, page, pageSize]
@@ -453,49 +443,9 @@ export default function ProductsUnitPage() {
 
             <PageContainer>
                 <PageStack>
-                    <Alert
-                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                        showIcon
-                        message={selectedRoleBlueprint?.title || 'Products unit permissions'}
-                        description={
-                            selectedRoleBlueprint
-                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                : canViewProductsUnit
-                                    ? 'บัญชีนี้สามารถเปิดหน้าหน่วยสินค้าได้'
-                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าหน่วยสินค้า'
-                        }
-                    />
+                    
 
-                    <PageSection
-                        title="Products Unit Capability Matrix"
-                        extra={<Tag color="green">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 18,
-                                        padding: 16,
-                                        border: item.enabled ? '1px solid rgba(14, 116, 144, 0.18)' : '1px solid rgba(148, 163, 184, 0.24)',
-                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #ecfeff 100%)' : '#ffffff',
-                                        boxShadow: item.enabled ? '0 14px 32px rgba(14, 116, 144, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
-                                    }}
-                                >
-                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                        <Space wrap>
-                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
-                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
-                                                {item.securityLevel}
-                                            </Tag>
-                                        </Space>
-                                        <Text strong>{item.title}</Text>
-                                        <Text type="secondary">{item.description}</Text>
-                                    </Space>
-                                </div>
-                            ))}
-                        </div>
-                    </PageSection>
+                    
 
                     <SearchBar>
                         <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} disabled={!canSearchProductsUnit} />
@@ -543,10 +493,7 @@ export default function ProductsUnitPage() {
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
-                                <Tag color={canCreateProductsUnit ? 'green' : 'default'}>create</Tag>
-                                <Tag color={canEditProductsUnit ? 'green' : 'default'}>edit</Tag>
-                                <Tag color={canToggleProductsUnitStatus ? 'green' : 'default'}>status</Tag>
-                                <Tag color={canDeleteProductsUnit ? 'red' : 'default'}>delete</Tag>
+                                <span></span>
                             </Space>
                         )}
                     >
@@ -570,15 +517,18 @@ export default function ProductsUnitPage() {
                                         deletingId={deletingId}
                                     />
                                 ))}
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
-                                        pageSize={pageSize}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
-                                        loading={loading || refreshing}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#0e7490"
+                                        pageSize={pageSize}
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </Space>

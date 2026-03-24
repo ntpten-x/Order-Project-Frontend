@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Modal, Space, Switch, Tag, Typography, message } from 'antd';
+import { Alert, Button, Modal, Pagination, Space, Switch, Tag, Typography, message } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, TagsOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
@@ -17,7 +17,7 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
-import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
@@ -28,7 +28,7 @@ import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
-import { TOPPING_GROUP_CAPABILITIES, TOPPING_GROUP_ROLE_BLUEPRINT } from '../../../../lib/rbac/topping-group-capabilities';
+
 
 const { Text } = Typography;
 
@@ -204,18 +204,7 @@ export default function ToppingGroupPage() {
     const canDeleteToppingGroup = can('topping_group.page', 'delete') && can('topping_group.delete.feature', 'delete') && canOpenToppingGroupManager;
     const canOpenEditWorkspace = canOpenToppingGroupManager && (canEditToppingGroup || canToggleToppingGroupStatus || canDeleteToppingGroup);
 
-    const capabilityMatrix = useMemo(
-        () => TOPPING_GROUP_CAPABILITIES.map((item) => ({ ...item, enabled: can(item.resourceKey, item.action) })),
-        [can]
-    );
-    const selectedRoleBlueprint = useMemo(() => {
-        const currentRole = String(user?.role ?? '').trim().toLowerCase();
-        return TOPPING_GROUP_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRole) ?? null;
-    }, [user?.role]);
-    const hasRestrictedControls = useMemo(
-        () => capabilityMatrix.some((item) => item.resourceKey !== 'topping_group.page' && !item.enabled),
-        [capabilityMatrix]
-    );
+
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -322,7 +311,7 @@ export default function ToppingGroupPage() {
             message.error('You do not have permission to create topping groups');
             return;
         }
-        showLoading('Opening topping-group manager...');
+        showLoading('กำลังเปิดหน้าจัดการท็อปปิ้งกรุ๊ป...');
         router.push('/pos/toppingGroup/manager/add');
     };
 
@@ -331,7 +320,7 @@ export default function ToppingGroupPage() {
             message.error('You do not have permission to open the topping-group manager');
             return;
         }
-        showLoading('Opening topping-group manager...');
+        showLoading('กำลังเปิดหน้าจัดการท็อปปิ้งกรุ๊ป...');
         router.push(`/pos/toppingGroup/manager/edit/${item.id}`);
     };
 
@@ -424,33 +413,7 @@ export default function ToppingGroupPage() {
 
             <PageContainer>
                 <PageStack>
-                    {selectedRoleBlueprint ? (
-                        <Alert
-                            type="info"
-                            showIcon
-                            message={`${selectedRoleBlueprint.roleName} baseline`}
-                            description={`${selectedRoleBlueprint.summary} Allowed: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | Restricted: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
-                        />
-                    ) : null}
 
-                    {hasRestrictedControls ? (
-                        <Alert
-                            type="warning"
-                            showIcon
-                            message="Some topping-group controls are restricted by policy"
-                            description="This page separates search, filter, manager workspace, create, edit, status control, and delete into individual capabilities."
-                        />
-                    ) : null}
-
-                    <PageSection title="Topping Group Capability Matrix">
-                        <Space wrap size={[8, 8]}>
-                            {capabilityMatrix.map((item) => (
-                                <Tag key={item.resourceKey} color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'} style={{ borderRadius: 999, paddingInline: 10 }}>
-                                    {item.title}
-                                </Tag>
-                            ))}
-                        </Space>
-                    </PageSection>
 
                     <SearchBar>
                         <SearchInput
@@ -518,15 +481,18 @@ export default function ToppingGroupPage() {
                                     />
                                 ))}
 
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
-                                        pageSize={pageSize}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
-                                        loading={loading || refreshing}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#8b5cf6"
+                                        pageSize={pageSize}
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </Space>

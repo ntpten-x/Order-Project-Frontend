@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, message, Modal, Space, Switch, Tag, Typography } from 'antd';
+import { Alert, Button, Pagination, message, Modal, Space, Switch, Tag, Typography } from 'antd';
 import {
     CarOutlined,
     DeleteOutlined,
@@ -26,7 +26,6 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import ListPagination from '../../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
@@ -36,7 +35,7 @@ import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissio
 import SmartAvatar from '../../../../components/ui/image/SmartAvatar';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
-import { DELIVERY_CAPABILITIES, DELIVERY_ROLE_BLUEPRINT } from '../../../../lib/rbac/delivery-capabilities';
+
 
 const { Text } = Typography;
 
@@ -236,18 +235,7 @@ export default function DeliveryPage() {
     const canDeleteDelivery = can('delivery.page', 'delete') && can('delivery.delete.feature', 'delete') && canOpenDeliveryManager;
     const canOpenDeliveryEditWorkspace = canOpenDeliveryManager && (canEditDelivery || canToggleDeliveryStatus || canDeleteDelivery);
     const currentRoleName = String(user?.role ?? '').trim().toLowerCase();
-    const selectedRoleBlueprint = useMemo(
-        () => DELIVERY_ROLE_BLUEPRINT.find((item) => item.roleName.toLowerCase() === currentRoleName) ?? null,
-        [currentRoleName]
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            DELIVERY_CAPABILITIES.map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
+
     const isDefaultListView = useMemo(
         () =>
             page === 1 &&
@@ -520,55 +508,7 @@ export default function DeliveryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <Alert
-                        type={selectedRoleBlueprint?.roleName === 'Employee' ? 'info' : 'success'}
-                        showIcon
-                        message={selectedRoleBlueprint?.title || 'Delivery permissions'}
-                        description={
-                            selectedRoleBlueprint
-                                ? `${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`
-                                : canViewDelivery
-                                    ? 'บัญชีนี้สามารถเปิดหน้าจัดการเดลิเวอรี่ได้'
-                                    : 'บัญชีนี้ไม่มีสิทธิ์เปิดหน้าจัดการเดลิเวอรี่'
-                        }
-                    />
 
-                    <PageSection
-                        title="Delivery Capability Matrix"
-                        extra={<Tag color="blue">{capabilityMatrix.filter((item) => item.enabled).length}/{capabilityMatrix.length} enabled</Tag>}
-                    >
-                        <div
-                            style={{
-                                display: 'grid',
-                                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                                gap: 12,
-                            }}
-                        >
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        borderRadius: 18,
-                                        padding: 16,
-                                        border: item.enabled ? '1px solid rgba(8, 145, 178, 0.2)' : '1px solid rgba(148, 163, 184, 0.24)',
-                                        background: item.enabled ? 'linear-gradient(180deg, #ffffff 0%, #ecfeff 100%)' : '#ffffff',
-                                        boxShadow: item.enabled ? '0 14px 32px rgba(8, 145, 178, 0.08)' : '0 10px 24px rgba(15, 23, 42, 0.04)',
-                                    }}
-                                >
-                                    <Space direction="vertical" size={8} style={{ width: '100%' }}>
-                                        <Space wrap>
-                                            <Tag color={item.enabled ? 'green' : 'default'}>{item.enabled ? 'Enabled' : 'Locked'}</Tag>
-                                            <Tag color={item.securityLevel === 'governance' ? 'red' : item.securityLevel === 'sensitive' ? 'gold' : 'blue'}>
-                                                {item.securityLevel}
-                                            </Tag>
-                                        </Space>
-                                        <Text strong>{item.title}</Text>
-                                        <Text type="secondary">{item.description}</Text>
-                                    </Space>
-                                </div>
-                            ))}
-                        </div>
-                    </PageSection>
 
                     <SearchBar>
                         <SearchInput
@@ -621,10 +561,7 @@ export default function DeliveryPage() {
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
                                 <span style={{ fontWeight: 600 }}>{total} รายการ</span>
-                                <Tag color={canCreateDelivery ? 'green' : 'default'}>create</Tag>
-                                <Tag color={canEditDelivery ? 'green' : 'default'}>edit</Tag>
-                                <Tag color={canToggleDeliveryStatus ? 'green' : 'default'}>status</Tag>
-                                <Tag color={canDeleteDelivery ? 'red' : 'default'}>delete</Tag>
+
                             </Space>
                         }
                     >
@@ -654,15 +591,18 @@ export default function DeliveryPage() {
                                     />
                                 ))}
 
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
                                         pageSize={pageSize}
-                                        loading={loading || refreshing}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#059669"
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </Space>

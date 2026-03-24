@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -8,6 +8,7 @@ import {
     Card,
     Grid,
     Modal,
+    Pagination,
     Space,
     Spin,
     Tag,
@@ -52,16 +53,13 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
-import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { useListState } from '../../../../hooks/pos/useListState';
-import {
-    SHIFT_HISTORY_CAPABILITIES,
-    SHIFT_HISTORY_ROLE_BLUEPRINT,
-} from '../../../../lib/rbac/shift-history-capabilities';
+
 
 dayjs.extend(duration);
 dayjs.extend(utc);
@@ -771,23 +769,7 @@ export default function ShiftHistoryPage() {
         return `${countRangeDays(dateRange)} วัน • ${formatRangeTimeLabel(dateRange)}`;
     }, [dateRange]);
     const showDualMonthCalendar = Boolean(screens.xl);
-    const selectedRoleBlueprint = useMemo(
-        () =>
-            SHIFT_HISTORY_ROLE_BLUEPRINT.find((item) => item.roleName === user?.role) ?? null,
-        [user?.role]
-    );
-    const capabilityMatrix = useMemo(
-        () =>
-            SHIFT_HISTORY_CAPABILITIES.map((item) => ({
-                ...item,
-                enabled: can(item.resourceKey, item.action),
-            })),
-        [can]
-    );
-    const hiddenSections = useMemo(
-        () => capabilityMatrix.filter((item) => !item.enabled).map((item) => item.title),
-        [capabilityMatrix]
-    );
+
     const effectiveSearchQuery = canSearchShiftHistory ? debouncedSearch.trim() : '';
     const effectiveStatusFilter = canFilterShiftHistory ? statusFilter : 'all';
     const effectiveCreatedSort = canFilterShiftHistory ? createdSort : undefined;
@@ -881,55 +863,11 @@ export default function ShiftHistoryPage() {
 
             <PageContainer>
                 <PageStack>
-                    {selectedRoleBlueprint ? (
-                        <Alert
-                            type="info"
-                            showIcon
-                            message={`Shift History baseline สำหรับ ${selectedRoleBlueprint.roleName}`}
-                            description={`${selectedRoleBlueprint.summary} | ทำได้: ${selectedRoleBlueprint.allowed.join(', ')}${selectedRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${selectedRoleBlueprint.denied.join(', ')}` : ''}`}
-                        />
-                    ) : null}
 
-                    <Card size="small" title="Shift History Capability Matrix" style={{ borderRadius: 20 }}>
-                        <div style={{ display: 'grid', gap: 10 }}>
-                            {capabilityMatrix.map((item) => (
-                                <div
-                                    key={item.resourceKey}
-                                    style={{
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        gap: 12,
-                                        padding: '10px 12px',
-                                        borderRadius: 16,
-                                        border: '1px solid #E2E8F0',
-                                        background: item.enabled ? '#F0FDF4' : '#F8FAFC',
-                                    }}
-                                >
-                                    <div style={{ minWidth: 0 }}>
-                                        <Text strong style={{ display: 'block', color: '#0F172A' }}>
-                                            {item.title}
-                                        </Text>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            {item.description}
-                                        </Text>
-                                    </div>
-                                    <Tag color={item.enabled ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                        {item.enabled ? 'Allowed' : 'Restricted'}
-                                    </Tag>
-                                </div>
-                            ))}
-                        </div>
-                    </Card>
 
-                    {hiddenSections.length > 0 ? (
-                        <Alert
-                            type="warning"
-                            showIcon
-                            message="Some shift-history controls are restricted by policy"
-                            description={`Hidden or locked for this role: ${hiddenSections.join(', ')}`}
-                        />
-                    ) : null}
+
+
+
 
                     {canViewShiftStats ? (
                         <StatsGroup
@@ -1091,14 +1029,18 @@ export default function ShiftHistoryPage() {
                                     />
                                 ))}
 
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
+                                <div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}>
+                                    <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                        <Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>
+                                            ทั้งหมด {total} รายการ
+                                        </Text>
+                                    </div>
+                                    <Pagination
+                                        current={page}
                                         total={total}
                                         pageSize={pageSize}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor="#7C3AED"
+                                        onChange={(nextPage) => setPage(nextPage)}
+                                        showSizeChanger={false}
                                     />
                                 </div>
                             </>

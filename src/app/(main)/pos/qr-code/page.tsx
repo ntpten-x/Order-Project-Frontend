@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, Button, Card, Modal, Radio, Skeleton, Space, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Button, Card, Modal, Pagination, Radio, Skeleton, Space, Tag, Tooltip, Typography, message } from 'antd';
 import { CopyOutlined, DownloadOutlined, LinkOutlined, QrcodeOutlined, ReloadOutlined, SyncOutlined, TableOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
-import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
@@ -32,7 +32,7 @@ import { createTableQrPrintDocument, type TableQrPrintItem } from '../../../../u
 import { buildTableQrExportCanvas, downloadCanvasAsPng } from '../../../../utils/print-settings/tableQrExport';
 import { takeawayQrService, type TakeawayQrInfo } from '../../../../services/pos/takeawayQr.service';
 import { getBackendErrorMessage, unwrapBackendData } from '../../../../utils/api/backendResponse';
-import { QR_CODE_CAPABILITIES, QR_CODE_ROLE_BLUEPRINT } from '../../../../lib/rbac/qr-code-capabilities';
+
 
 const { Text } = Typography;
 const DEFAULT_PAGE_SIZE = 10;
@@ -182,25 +182,7 @@ export default function TableQrCodePage() {
     const takeawayQrSubtitle = 'สแกนคิวอาร์โค้ดนี้เพื่อสั่งอาหาร';
     const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
     const takeawayQrRenderKey = takeawayQr?.token || takeawayCustomerUrl || 'takeaway-qr';
-    const qrRoleBlueprint = useMemo(
-        () =>
-            QR_CODE_ROLE_BLUEPRINT.find(
-                (item) => normalizeRoleName(item.roleName) === normalizeRoleName(user?.role)
-            ) ?? null,
-        [user?.role]
-    );
-    const qrCapabilityMatrix = useMemo(
-        () => QR_CODE_CAPABILITIES.map((item) => ({ ...item, allowed: can(item.resourceKey, item.action) })),
-        [can]
-    );
-    const qrAllowedCount = useMemo(
-        () => qrCapabilityMatrix.filter((item) => item.allowed).length,
-        [qrCapabilityMatrix]
-    );
-    const qrRestrictedCapabilities = useMemo(
-        () => qrCapabilityMatrix.filter((item) => !item.allowed),
-        [qrCapabilityMatrix]
-    );
+
 
     const captureCanvasImage = useCallback(async (canvasId: string) => {
         for (let attempt = 0; attempt < 40; attempt += 1) {
@@ -954,41 +936,7 @@ export default function TableQrCodePage() {
             />
             <PageContainer>
                 <PageStack>
-                    <PageSection
-                        title="QR Capability Matrix"
-                        extra={<Text strong>{qrAllowedCount}/{qrCapabilityMatrix.length} capabilities</Text>}
-                    >
-                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                            {qrRoleBlueprint ? (
-                                <Alert
-                                    type="info"
-                                    showIcon
-                                    message={`QR Code baseline สำหรับ ${qrRoleBlueprint.roleName}`}
-                                    description={`${qrRoleBlueprint.summary} | ทำได้: ${qrRoleBlueprint.allowed.join(', ')}${qrRoleBlueprint.denied.length > 0 ? ` | จำกัด: ${qrRoleBlueprint.denied.join(', ')}` : ''}`}
-                                />
-                            ) : null}
-                            {qrRestrictedCapabilities.length > 0 ? (
-                                <Alert
-                                    type="warning"
-                                    showIcon
-                                    message="Some QR actions are restricted by policy"
-                                    description={qrRestrictedCapabilities.map((item) => item.title).join(', ')}
-                                />
-                            ) : null}
-                            <Card size="small" style={{ borderRadius: 16 }}>
-                                <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                                    <Text type="secondary">QR capability ถูกแยกจาก `tables.page` และ `orders.page` เพื่อควบคุม preview, customer link, rotate, export, bulk export และ takeaway governance แบบราย action</Text>
-                                    <Space wrap>
-                                        {qrCapabilityMatrix.map((item) => (
-                                            <Tag key={item.resourceKey} color={item.allowed ? 'green' : item.securityLevel === 'governance' ? 'red' : 'default'}>
-                                                {item.title}
-                                            </Tag>
-                                        ))}
-                                    </Space>
-                                </Space>
-                            </Card>
-                        </Space>
-                    </PageSection>
+
                     <SearchBar>
                         <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} disabled={!canSearchQr} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
@@ -1000,7 +948,7 @@ export default function TableQrCodePage() {
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองปรับคำค้นหาหรือตัวกรอง' : 'เปิดโต๊ะให้ใช้งานก่อน แล้วระบบจะสร้าง QR ให้อัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canPreview={canPreviewQr} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={handlePreviewQr} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองปรับคำค้นหาหรือตัวกรอง' : 'เปิดโต๊ะให้ใช้งานก่อน แล้วระบบจะสร้าง QR ให้อัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canPreview={canPreviewQr} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={handlePreviewQr} />)}</div><div className="pos-pagination-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginTop: 16, position: 'relative', width: '100%', borderTop: '1px solid #E2E8F0', paddingTop: 16 }}><div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}><Text type="secondary" style={{ fontSize: 13, color: '#64748B' }}>ทั้งหมด {total} รายการ</Text></div><Pagination current={page} total={total} pageSize={pageSize} onChange={(nextPage) => setPage(nextPage)} showSizeChanger={false} /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
